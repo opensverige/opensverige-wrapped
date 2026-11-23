@@ -21,7 +21,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <dt>Varav skärmdelning</dt><dd id="stream-total"></dd>
 <dt>Registrerade kanalbesök</dt><dd id="visit-total"></dd></dl>
 </div><button id="voice">Uppdatera rösttid</button> <button id="load">Hämta kanalhistoriken igen</button><p role="status" id="status"></p><p id="session-help" hidden><a href="/data">Öppna datasidan igen och fortsätt</a></p><dl id="metrics"></dl><details><summary>Egna inlägg per aktiv dag</summary><dl id="daily"></dl></details></section>
-<section><h2>Dina signaturuttryck</h2><p>Hitta repliker du återkommer till. När du trycker skickas återkommande fraser ur dina egna inlägg till OpenAI för urval.</p><button id="pick-quotes" hidden>Hitta mina signaturuttryck</button><p id="phrase-status" role="status"></p><dl id="phrase-list"></dl></section>
+<section><h2>Dina citat från året</h2><p>Hitta repliker du återkommer till. Hitta också roliga engångsrepliker med högst en kvarvarande emoji-reaktion. När du trycker skickas återkommande fraser och korta egna inlägg till OpenAI för urval.</p><button id="pick-quotes" hidden>Hitta mina citat</button><p id="phrase-status" role="status"></p><dl id="phrase-list"></dl></section>
 <section><h2>Dina inlägg att återbesöka</h2><p id="post-status">Letar i kanalhistoriken …</p><dl id="post-list"></dl></section><section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Chattstatus</th><th>Rösttid</th><th>Skärmdelning</th><th>Röstbesök</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td>{% if id in voice_ids %}<td data-voice="time">…</td><td data-voice="stream">…</td><td data-voice="visits">…</td>{% else %}<td>—</td><td>—</td><td>—</td>{% endif %}</tr>{% endfor %}</tbody></table></div></section></main>
 <aside id="scan-toast" aria-hidden="true" hidden><strong></strong><span></span></aside>
 <script>
@@ -39,7 +39,7 @@ function showScanStatus(title, detail) {
   statusLine.textContent = title + ' · ' + detail;
 }
 const metrics = document.querySelector('#metrics');
-const scanKey = 'osw-2026-v3-' + {{ rows['Discord-ID']|tojson }} + '-' + {{ content_access|tojson }};
+const scanKey = 'osw-2026-v4-' + {{ rows['Discord-ID']|tojson }} + '-' + {{ content_access|tojson }};
 const pageStore = new Promise(resolve => {
   const request = indexedDB.open('osw-channel-pages', 1);
   request.onupgradeneeded = () => request.result.createObjectStore('pages');
@@ -76,6 +76,7 @@ button.onclick = async () => {
   const highlights = new Map();
   const phrases = new Map();
   const discovered = new Map();
+  const quietPosts = new Map();
   const phraseList = document.querySelector('#phrase-list');
   const phraseStatus = document.querySelector('#phrase-status');
   phraseList.replaceChildren();
@@ -92,9 +93,9 @@ button.onclick = async () => {
     phraseList.replaceChildren();
     const candidates = [...discovered].filter(([phrase,n]) => n >= 2 && phrase.length <= 150)
       .map(([phrase]) => phrase);
-    async function choose(group) {
+    async function choose(group,mode='signature') {
       const response = await fetch('/data/signatures', {method:'POST',
-        body:new URLSearchParams({csrf,items:JSON.stringify(group)})});
+        body:new URLSearchParams({csrf,mode,items:JSON.stringify(group)})});
       checkSession(response);
       if (!response.ok) throw new Error('Urvalet kunde inte slutföras. Försök igen.');
       const {ids} = await response.json();
@@ -118,7 +119,30 @@ button.onclick = async () => {
         count.textContent = discovered.get(phrase)+' inlägg';
         phraseList.append(name,count);
       }
-      phraseStatus.textContent = best.length ? 'Föreslagna citat från dina egna inlägg.' : 'Inga tydliga signaturuttryck hittades.';
+      let quiet = [...quietPosts.keys()];
+      let picks = [];
+      while (quiet.length) {
+        picks = [];
+        for (let i=0; i<quiet.length; i+=60) {
+          phraseStatus.textContent = 'Letar efter förbisedda repliker · grupp '+(1+i/60)+' av '+Math.ceil(quiet.length/60);
+          picks.push(...await choose(quiet.slice(i,i+60),'quiet'));
+        }
+        if (picks.length <= 3) break;
+        quiet = picks;
+      }
+      for (const text of picks) {
+        const post = quietPosts.get(text);
+        const name = document.createElement('dt'), detail = document.createElement('dd');
+        name.textContent = '”'+text+'”';
+        const link = document.createElement('a');
+        link.textContent = '#'+channels[post.channel];
+        link.href = 'https://discord.com/channels/1466847548864987289/'+post.channel+'/'+post.id;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        detail.append('Den förbisedda repliken · '+post.reactions+' kvarvarande reaktioner · ',link);
+        phraseList.append(name,detail);
+      }
+      phraseStatus.textContent = best.length || picks.length ? 'Förslag ur dina egna inlägg.' : 'Inga tydliga citat hittades.';
     } catch(error) {
       phraseStatus.textContent = error.message;
     } finally {
@@ -225,6 +249,9 @@ button.onclick = async () => {
           state.retries = 0;
           data = await response.json();
           await cachedPage(key, data);
+        }
+        for (const post of data.quiet_posts || []) {
+          if (!quietPosts.has(post.text)) quietPosts.set(post.text,{...post,channel});
         }
         for (const [phrase,count] of Object.entries(data.discovered || {})) {
           discovered.set(phrase,(discovered.get(phrase) || 0)+count);
