@@ -1,20 +1,22 @@
 import React, {useLayoutEffect, useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Player} from '@remotion/player';
-import {useCurrentFrame} from 'remotion';
+import {Html5Audio, useCurrentFrame} from 'remotion';
 
 import {paint} from './paint';
+import {paint as paintPoster} from './poster';
+import {fps,frames,soundtrack} from './design';
 function YearCard({stats}) {
   const ref = useRef(null);
   const frame = useCurrentFrame();
   useLayoutEffect(() => paint(ref.current,stats,frame),[stats,frame]);
-  return <canvas ref={ref} width={1080} height={1350} style={{width:'100%',height:'100%'}}/>;
+  return <><Html5Audio src={soundtrack}/><canvas ref={ref} width={1080} height={1350} style={{width:'100%',height:'100%'}}/></>;
 }
 window.showYear = stats => {
   const host = document.querySelector('#year-preview');
   const root = createRoot(host);
-  root.render(<Player component={YearCard} inputProps={{stats}} durationInFrames={240}
-    compositionWidth={1080} compositionHeight={1350} fps={30} controls autoPlay
+  root.render(<Player component={YearCard} inputProps={{stats}} durationInFrames={frames}
+    compositionWidth={1080} compositionHeight={1350} fps={fps} controls
     style={{width:'100%',maxWidth:440,aspectRatio:'4/5'}}/>);
   const video = document.querySelector('#year-video');
   const status = document.querySelector('#video-status');
@@ -54,7 +56,7 @@ window.showYear = stats => {
   download.onclick = () => {
     const canvas = document.createElement('canvas');
     canvas.width=1080; canvas.height=1350;
-    paint(canvas,stats,239);
+    paintPoster(canvas,stats,239);
     const link = document.createElement('a');
     link.download='mitt-opensverige-2026.png';
     link.href=canvas.toDataURL('image/png');

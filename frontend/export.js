@@ -1,6 +1,9 @@
 importScripts('/static/year-codec.js');
 import {paint} from './paint';
 
+import {addMusic} from './music';
+import {fps,frames} from './design';
+
 self.onmessage = async ({data: stats}) => {
   let encoder;
   try {
@@ -9,19 +12,16 @@ self.onmessage = async ({data: stats}) => {
     encoder = await self.HME.createH264MP4Encoder();
     encoder.width = canvas.width;
     encoder.height = canvas.height;
-    encoder.frameRate = 30;
+    encoder.frameRate = fps;
     encoder.initialize();
-    let pixels;
-    for (let frame=0; frame<240; frame++) {
-      if (frame <= 70) {
-        paint(canvas,stats,frame);
-        pixels = ctx.getImageData(0,0,canvas.width,canvas.height).data;
-      }
+    for (let frame=0; frame<frames; frame++) {
+      paint(canvas,stats,frame);
+      const pixels = ctx.getImageData(0,0,canvas.width,canvas.height).data;
       encoder.addFrameRgba(pixels);
-      if (frame % 12 === 0) self.postMessage({percent:Math.round(frame/240*100)});
+      if (frame % 12 === 0) self.postMessage({percent:Math.round(frame/frames*100)});
     }
     encoder.finalize();
-    const file = new Blob([encoder.FS.readFile(encoder.outputFilename)],{type:'video/mp4'});
+    const file = await addMusic(encoder.FS.readFile(encoder.outputFilename));
     self.postMessage({file});
   } catch {
     self.postMessage({error:true});

@@ -1,35 +1,41 @@
+import {fps, scenes, secondsPerScene, theme} from './design';
 export function paint(canvas, stats, frame) {
   const ctx = canvas.getContext('2d');
-  const paper = '#fcfaf2', moss = '#2d492d', rust = '#884b21';
-  function text(value, x, y, size, color, bold = false) {
-    ctx.fillStyle = color;
-    ctx.font = (bold ? '750 ' : '500 ') + size + 'px "Segoe UI",sans-serif';
-    ctx.fillText(value, x, y, 940);
-  }
-  ctx.fillStyle = paper;
+  const elapsed = frame / fps;
+  const index = Math.min(scenes.length-1, Math.floor(elapsed/secondsPerScene));
+  const local = elapsed-index*secondsPerScene;
+  const scene = scenes[index];
+  const [bg,ink,accent] = scene.colors.map(key=>theme[key]);
+  ctx.fillStyle=bg;
   ctx.fillRect(0,0,1080,1350);
-  text('OpenSverige',64,105,66,moss,true);
-  text('WRAPPED  /  2026',64,170,32,rust);
-  ctx.fillStyle = moss;
-  ctx.fillRect(0,220,1080,600);
+  // Each scene has its own moving contour pattern and a quiet area for type.
   ctx.save();
-  ctx.beginPath();
-  ctx.rect(0,220,1080,600);
-  ctx.clip();
-  ctx.strokeStyle = '#60775b';
-  for (let i=1;i<22;i++) {
+  ctx.strokeStyle=accent;
+  ctx.lineWidth=5;
+  for(let ring=1;ring<=17;ring++) {
     ctx.beginPath();
-    ctx.ellipse(1140,360,i*34,i*21,-0.6,0,2*Math.PI*Math.min(1,(frame+8)/55));
+    ctx.ellipse(index%2 ? 160 : 890,300+18*Math.sin(local*.65),ring*37,ring*(14+index),-.42,0,Math.PI*2*Math.min(1,(local+.25)/1.25));
     ctx.stroke();
   }
   ctx.restore();
-  text('Min hemmaplan',64,403,90,paper,true);
-  text(stats.channels || 'OpenSverige',64,602,100,paper,true);
-  text(stats.count.toLocaleString('sv-SE')+' inlägg',64,770,62,paper);
-  ctx.globalAlpha = Math.min(1,Math.max(0,(frame-50)/20));
-  text(stats.emoji ? 'Min signatur' : 'Mitt år i siffror',64,950,46,rust);
-  text(stats.emoji || String(stats.days)+' aktiva dagar',64,1095,100,moss,true);
-  if (stats.emoji) text(stats.uses+' gånger i mina inlägg',64,1170,48,moss);
-  ctx.globalAlpha = 1;
-  text(stats.name+'  /  2026 hittills',64,1290,36,moss);
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,545,1080,805);
+  function label(text,y,size,color,weight) {
+    ctx.fillStyle=color;
+    ctx.font=weight+' '+size+'px '+theme.font;
+    ctx.fillText(text,68,y,944);
+  }
+  const resolve = field=>typeof field==='function'?field(stats):field;
+  label('OpenSverige   /   Wrapped 2026',104,39,ink,650);
+  ctx.save();
+  const enter=Math.min(1,local/.65);
+  ctx.translate(0,48*(1-enter)**2);
+  ctx.globalAlpha=Math.max(.1,enter);
+  label(resolve(scene.title),695,65,ink,600);
+  label(scene.value(stats),925,157,ink,800);
+  label(scene.detail(stats),1022,47,ink,550);
+  ctx.restore();
+  ctx.fillStyle=accent;
+  ctx.fillRect(68,1184,944*Math.min(1,(local+.1)/secondsPerScene),9);
+  label(stats.name+'   /   2026 hittills',1270,35,ink,500);
 }

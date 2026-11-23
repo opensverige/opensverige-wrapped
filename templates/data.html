@@ -252,7 +252,7 @@ button.onclick = async () => {
       const names = Object.entries(totals).filter(([,n]) => n === highest).map(([id]) => '#' + channels[id]);
       const emoji = [...writtenEmojis].filter(([,n]) => n === uses).map(([key]) => key.split('·')[0]);
       window.showYear({name: {{ rows['Visningsnamn']|tojson }}, channels:names.join(' / '),
-        count:highest, days:days.size, emoji:emoji.join(' '), uses});
+        messages:Object.values(totals).reduce((sum,n)=>sum+n,0), reactions, count:highest, days:days.size, emoji:emoji.join(' '), uses});
     }
     {% endif %}
     button.textContent = scanComplete ? 'Hämta kanalhistoriken igen' : 'Fortsätt läsa kanalhistoriken';
