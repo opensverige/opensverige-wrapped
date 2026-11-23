@@ -272,7 +272,10 @@ def data():
         "Tilldelade roller": len(member.get("roles", [])),
         "Boostar sedan": local_date(member.get("premium_since")),
     }
-    return render_template("data.html", rows=rows, channels=readable_channels(member), csrf=form_token())
+    channels = readable_channels(member)
+    _, catalog, _ = channel_catalog()
+    voice_ids = {channel["id"] for channel in catalog if channel["type"] in (2, 13)}
+    return render_template("data.html", rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
 
 
 @app.post("/data/messages")
