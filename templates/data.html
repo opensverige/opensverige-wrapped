@@ -7,6 +7,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 #scan-toast{position:fixed;z-index:5;right:1rem;bottom:max(1rem,env(safe-area-inset-bottom));max-width:calc(100vw - 2rem);padding:.75rem 1rem;border-radius:12px;background:#2d492d;color:white;box-shadow:0 4px 18px #19191433;pointer-events:none}
 #scan-toast strong,#scan-toast span{display:block}
 #scan-toast span{font-size:.9rem}
+#daily summary{cursor:pointer;padding:.55rem 0;border-bottom:1px solid #eee}#daily li{padding:.55rem 0}#daily li div{white-space:pre-wrap;overflow-wrap:anywhere}
 </style><main><header><a href="/">OpenSverige Wrapped</a></header>{% if year_view %}
 <h1>Mitt år i OpenSverige</h1>
 <section><div id="year-preview">Ditt kort skapas när kanalhistoriken är färdigläst.</div>
@@ -26,8 +27,8 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <dl><dt>Tid i röstkanaler</dt><dd id="voice-total"></dd>
 <dt>Varav skärmdelning</dt><dd id="stream-total"></dd>
 <dt>Registrerade kanalbesök</dt><dd id="visit-total"></dd></dl>
-</div><button id="voice">Uppdatera rösttid</button> <button id="load">Hämta kanalhistoriken igen</button><p role="status" id="status"></p><p id="session-help" hidden><a href="/data">Öppna datasidan igen och fortsätt</a></p><dl id="metrics"></dl><details><summary>Egna inlägg per aktiv dag</summary><dl id="daily"></dl></details></section>
-<section><h2>Dina citat från året</h2><p>Hitta repliker du återkommer till. Hitta också roliga engångsrepliker med högst en kvarvarande emoji-reaktion. När du trycker skickas återkommande fraser och korta egna inlägg till OpenAI för urval.</p><button id="pick-quotes" hidden>Hitta mina citat</button><p id="phrase-status" role="status"></p><dl id="phrase-list"></dl></section>
+</div><button id="voice">Uppdatera rösttid</button> <button id="load">Hämta kanalhistoriken igen</button><p role="status" id="status"></p><p id="session-help" hidden><a href="/data">Öppna datasidan igen och fortsätt</a></p><dl id="metrics"></dl><details><summary>Egna inlägg per aktiv dag</summary><div id="daily"></div></details></section>
+<section hidden><h2>Dina citat från året</h2><p>Hitta repliker du återkommer till. Hitta också roliga engångsrepliker med högst en kvarvarande emoji-reaktion. När du trycker skickas återkommande fraser och korta egna inlägg till OpenAI för urval.</p><button id="pick-quotes" hidden>Hitta mina citat</button><p id="phrase-status" role="status"></p><dl id="phrase-list"></dl></section>
 <section><h2>Dina inlägg att återbesöka</h2><p id="post-status">Letar i kanalhistoriken …</p><dl id="post-list"></dl></section><section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Chattstatus</th><th>Rösttid</th><th>Skärmdelning</th><th>Röstbesök</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td>{% if id in voice_ids %}<td data-voice="time">…</td><td data-voice="stream">…</td><td data-voice="visits">…</td>{% else %}<td>—</td><td>—</td><td>—</td>{% endif %}</tr>{% endfor %}</tbody></table></div></section></main>
 <aside id="scan-toast" aria-hidden="true" hidden><strong></strong><span></span></aside>
 <script>
@@ -51,6 +52,56 @@ function checkSession(response) {
     document.querySelector('#session-help').hidden = false;
     throw new SessionError('Din inloggning behöver förnyas.');
   }
+}
+function dayDetails(date, count) {
+  const details = document.createElement('details');
+  const title = document.createElement('summary');
+  title.textContent = date + ' · ' + count + ' inlägg';
+  const list = document.createElement('ol');
+  const status = document.createElement('p');
+  status.setAttribute('role','status');
+  const more = document.createElement('button');
+  more.textContent = 'Visa fler inlägg';
+  more.hidden = true;
+  details.append(title,list,status,more);
+  let started = false, after = '0';
+  async function load() {
+    more.disabled = true;
+    status.textContent = 'Hämtar sparade inlägg …';
+    try {
+      const response = await fetch('/data/day/'+date+'?after='+after);
+      checkSession(response);
+      if (!response.ok) throw new Error('Kunde inte hämta inläggen.');
+      const page = await response.json();
+      for (const post of page.posts) {
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = 'https://discord.com/channels/1466847548864987289/'+post.channel+'/'+post.id;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = new Date(post.time).toLocaleTimeString('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',minute:'2-digit'})+' · #'+channels[post.channel];
+        const body = document.createElement('div');
+        body.textContent = post.text;
+        const meta = document.createElement('small');
+        meta.textContent = [...post.files,...post.stickers,...post.reactions.map(([emoji,n])=>emoji+' × '+n)].join(' · ');
+        item.append(link,body,meta);
+        list.append(item);
+        after = post.id;
+      }
+      status.textContent = list.children.length ? '' : 'Inga tillgängliga inlägg för dagen.';
+      more.textContent = 'Visa fler inlägg';
+      more.hidden = !page.more;
+    } catch (error) {
+      status.textContent = error.message;
+      more.textContent = 'Försök igen';
+      more.hidden = false;
+    } finally { more.disabled = false; }
+  }
+  details.ontoggle = () => {
+    if (details.open && !started) { started = true; load(); }
+  };
+  more.onclick = load;
+  return details;
 }
 let scanComplete = false;
 button.onclick = async () => {
@@ -285,11 +336,7 @@ button.onclick = async () => {
     }
     renderMetrics();
     for (const [date, count] of [...days].sort(([a],[b]) => a.localeCompare(b))) {
-      const label = document.createElement('dt');
-      const value = document.createElement('dd');
-      label.textContent = date;
-      value.textContent = count;
-      daily.append(label, value);
+      daily.append(dayDetails(date, count));
     }
     scanComplete = failed === 0;
     renderMetrics();

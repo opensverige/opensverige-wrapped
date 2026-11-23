@@ -8,7 +8,7 @@ import hmac
 import hashlib
 import base64
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from urllib.parse import urlencode
 
@@ -381,6 +381,37 @@ def memory_source():
     if post["author"]["id"] != member["user"]["id"] or day.year != 2026:
         return {"error":"Välj ett av dina egna inlägg från 2026."}, 400
     return {"text":post.get("content",""), "channel":channel, "date":day.isoformat()}
+
+
+@app.get("/data/day/<day>")
+def saved_day(day):
+    member = authenticated_member()
+    if not isinstance(member, dict):
+        return {"error":"Logga in igen."}, 401
+    try:
+        start = datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=ZoneInfo("Europe/Stockholm"))
+        if start.year != 2026 or start.date().isoformat() != day:
+            abort(400)
+        after = int(request.args.get("after", "0"))
+        if not 0 <= after < 2**63:
+            abort(400)
+    except ValueError:
+        abort(400)
+    def boundary(date):
+        return (int(date.timestamp()) * 1000 - 1420070400000) << 22
+    with history.connect() as db:
+        rows = db.execute("""select channel_id,message_id,message->>'content',
+            message->>'timestamp',message->'attachments',message->'sticker_items',message->'reactions'
+            from public.osw_member_messages where member_id=%s and channel_id=any(%s)
+            and message_id >= %s and message_id < %s and message_id > %s
+            order by message_id limit 51""", (member["user"]["id"],list(readable_channels(member)),
+            boundary(start),boundary(start + timedelta(days=1)),after)).fetchall()
+    return {"posts":[dict(channel=ch,id=str(mid),text=body,time=ts,
+                         files=[item.get("filename","") for item in files or []],
+                         stickers=[item.get("name","") for item in stickers or []],
+                         reactions=[[item["emoji"]["name"],item["count"]] for item in reactions or []])
+                     for ch,mid,body,ts,files,stickers,reactions in rows[:50]],
+            "more":len(rows)>50}, 200, {"Cache-Control":"private, no-store"}
 
 
 @app.post("/data/history")
