@@ -284,12 +284,6 @@ def data():
                                    timeout=5)
         application.raise_for_status()
         flags = application.json()["flags"]
-        if profile["id"] == "371043114288414720" and not flags & ((1 << 18) | (1 << 19)):
-            updated = requests.patch(f"{API}/applications/@me",
-                                     headers={"Authorization": "Bot " + os.environ["DISCORD_BOT_TOKEN"]},
-                                     json={"flags": flags | (1 << 19)}, timeout=10)
-            updated.raise_for_status()
-            flags = updated.json()["flags"]
         content_access = bool(flags & ((1 << 18) | (1 << 19)))
     except (requests.RequestException, KeyError, ValueError):
         pass
