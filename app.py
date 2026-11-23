@@ -64,7 +64,14 @@ def form_token():
 @app.route("/")
 def home():
     user = current_user()
-    return render_template("index.html", csrf=form_token() if user else None, member=user and user["user_metadata"].get("full_name", "Discord-medlem"))
+    member = None
+    if user:
+        profile = next((entry.get("identity_data") or {} for entry in user.get("identities", [])
+                        if entry.get("provider") == "discord"), {})
+        member = (profile.get("preferred_username") or profile.get("user_name")
+                  or profile.get("full_name") or user["user_metadata"].get("full_name")
+                  or "Discord-medlem")
+    return render_template("index.html", csrf=form_token() if user else None, member=member)
 
 
 @app.route("/login")

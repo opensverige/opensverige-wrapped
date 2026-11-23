@@ -1,13 +1,35 @@
 <!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenSverige Wrapped 2026</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#121126;color:#fff8ea;font:1.1rem/1.55 "DM Sans",system-ui,sans-serif}main{max-width:900px;margin:auto;padding:5vh clamp(20px,6vw,80px)}header{font-weight:750;letter-spacing:.06em;border-bottom:1px solid #686078;padding-bottom:1rem}h1{font-size:clamp(3rem,9vw,6.5rem);letter-spacing:-.075em;line-height:.96;margin:.65em 0 .4em}section{background:repeating-radial-gradient(ellipse at 125% 140%,transparent 0 22px,#ffffff18 23px 31px),#5541a4;border-radius:24px;padding:clamp(24px,5vw,54px);margin:20px 0}section:nth-of-type(2){background-color:#194e55}strong{font-size:clamp(2rem,7vw,5rem);letter-spacing:-.055em;line-height:1.1}a{color:inherit}.cta,button{display:inline-block;border:0;border-radius:40px;padding:.85rem 1.4rem;background:#d6ff85;color:#151728;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}footer{margin-top:2rem}form{display:inline}a:focus-visible,button:focus-visible{outline:3px solid white;outline-offset:3px}
-</style><main><header>OpenSverige / Wrapped 2026</header>
+:root {
+  --paper: hsl(42 45% 98%); --ink: hsl(45 17% 5%); --line: hsl(40 20% 87%);
+  --moss: hsl(120 24% 23%); --rust: hsl(25 60% 32%);
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 1.1rem/1.5 "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; }
+header { background: white; border-bottom: 1px solid var(--line); }
+nav, main { width: min(1040px, 100%); margin: auto; padding-inline: clamp(20px,5vw,64px); }
+nav { height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+nav b { font-size: 1.4rem; letter-spacing: -.045em; }
+nav span { font: .9rem var(--mono); color: var(--moss); }
+main { padding-block: clamp(32px,8vh,96px); }
+section { background: white; border: 1px solid var(--line); border-radius: 14px; padding: clamp(24px,6vw,64px); margin-bottom: 16px; }
+.hero { position: relative; overflow: hidden; border-top: 4px solid var(--moss); }
+.hero::after { content: ""; display: block; height: 20px; margin: 40px 0 -8px; background: repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 20px); border-block: 1px solid var(--line); }
+h1, strong { display:block; overflow-wrap:anywhere; font-size:clamp(2.7rem,8vw,5.5rem); line-height:1.04; letter-spacing:-.06em; margin:0; }
+p { max-width: 48ch; margin: 20px 0 28px; }
+strong { color: var(--moss); margin-bottom: 8px; }
+a { color: var(--rust); text-underline-offset: 4px; }
+.cta, button { display: inline-block; background: var(--moss); color: white; border: 0; border-radius: 8px; padding: 12px 22px; font: inherit; font-weight: 650; text-decoration: none; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+footer { margin-top: 24px; }
+</style><header><nav><b>OpenSverige</b><span>Wrapped / 2026</span></nav></header><main>
 {% if problem %}<h1>Ett ögonblick.</h1><p>{{ problem }}</p><a href="/">Till startsidan</a>
 {% elif result is defined %}<h1>{{ 'Exempelåret' if demo else 'Ditt år' }}.</h1>
 {% if demo %}<p>Demo med påhittade siffror.</p>{% endif %}
 {% for number,label in result %}<section><strong>{{ number }}</strong><div>{{ label }}</div></section>{% else %}<p>Vi hittade inga egna inlägg i den läsbara historiken för #general och #bygg-skiten under 2026.</p>{% endfor %}
 {% if link %}<a class="cta" href="{{ link }}">Öppna ditt inlägg</a>{% endif %}<footer><a href="/">Till startsidan</a></footer>
 {% else %}<section><h1>Ditt år på<br>OpenSverige.</h1><p>Dina dagar, dina kanaler och samtalet som fick folk att svara.</p>
-{% if member %}<p>Inloggad som {{ member }}</p><form method="post" action="/year"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Visa mitt år</button></form>
+{% if member %}<form method="post" action="/year"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Visa mitt år</button></form>
 {% else %}<a class="cta" href="/login">Logga in med Discord</a>{% endif %}</section><a href="/demo">Se ett exempelår</a>{% endif %}</main></html>
