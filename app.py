@@ -297,6 +297,11 @@ def data():
 
 CUSTOM_EMOJI = re.compile(r"<a?:([A-Za-z0-9_]+):([0-9]+)>")
 
+YEAR_PHRASES = {
+    "god morgon": re.compile(r"\bgod\s*morgon\b", re.IGNORECASE),
+    "bygg skiten": re.compile(r"\bbygg\s+skiten\b", re.IGNORECASE),
+}
+
 def written_emojis(content):
     for match in CUSTOM_EMOJI.finditer(content):
         yield f":{match[1]}:·{match[2]}"
@@ -325,6 +330,7 @@ def data_messages():
     days = Counter()
     replies = reactions = 0
     written = Counter()
+    phrases = Counter()
     highlights = {}
     cutoff = False
     for msg in batch:
@@ -334,7 +340,10 @@ def data_messages():
         if day.year != 2026 or msg["author"]["id"] != uid or msg["type"] not in (0, 19):
             continue
         days[day.isoformat()] += 1
-        written.update(written_emojis(msg.get("content") or ""))
+        content = msg.get("content") or ""
+        written.update(written_emojis(content))
+        for phrase, pattern in YEAR_PHRASES.items():
+            phrases[phrase] += len(pattern.findall(content))
         replies += int(msg["type"] == 19)
         emoji = {item["emoji"]["name"]: item["count"] for item in msg.get("reactions", [])
                  if item["emoji"].get("name")}
@@ -350,7 +359,7 @@ def data_messages():
             if score and score > highlights.get(kind, {}).get("score", 0):
                 highlights[kind] = {"score":score, "date":day.isoformat(), "id":msg["id"],
                                     "emoji":sorted(emoji.items(), key=lambda pair: -pair[1])[:3]}
-    return {"days": days, "replies": replies, "reactions": reactions, "highlights":highlights, "written_emojis":written,
+    return {"days": days, "replies": replies, "reactions": reactions, "highlights":highlights, "written_emojis":written, "phrases": phrases,
             "next": batch[-1]["id"] if len(batch) == 100 and not cutoff else None}
 
 @app.post("/data/voice")
