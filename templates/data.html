@@ -20,41 +20,63 @@ button.onclick = async () => {
   const days = new Map(), months = new Map(), totals = {};
   let replies = 0, reactions = 0, pages = 0;
   try {
-    for (const [channel, name] of Object.entries(channels)) {
-      totals[channel] = 0;
-      const cells=document.getElementById('ch-'+channel).cells;
-      const active=new Set();
-      let channelReplies=0, channelReactions=0;
-      cells[5].textContent='Läser';
-      let before = '';
-      do {
-        statusLine.textContent = 'Läser #' + name + ' · ' + pages + ' sidor hämtade';
-        const response = await fetch('/data/messages', {method:'POST',body:new URLSearchParams({csrf,channel,before})});
+    const queue = Object.keys(channels).map(channel => ({
+      channel, before: '', days: new Set(), replies: 0, reactions: 0,
+      cells: document.getElementById('ch-' + channel).cells
+    }));
+    const channelCount = queue.length;
+    let finished = 0, failed = 0, resumeAt = 0;
+    async function readPage(state) {
+      const {channel, before, cells} = state;
+      cells[5].textContent = 'L�ser';
+      try {
+        const response = await fetch('/data/messages', {
+          method: 'POST', body: new URLSearchParams({csrf, channel, before})
+        });
         if (response.status === 429) {
           const {retry} = await response.json();
-          await new Promise(resolve => setTimeout(resolve, retry * 1000 + 250));
-          continue;
+          resumeAt = Math.max(resumeAt, Date.now() + 1000 * (Number(retry) || 2) + 250);
+          cells[5].textContent = 'Pausad av Discord';
+          queue.push(state);
+          return;
         }
-        if (!response.ok) throw Error('Hämtningen avbröts. Kontrollera inloggningen och försök igen.');
+        if (!response.ok) throw new Error();
         const data = await response.json();
-        for (const [date,n] of Object.entries(data.days)) {
-          days.set(date,(days.get(date)||0)+n);
-          const month=date.slice(0,7);
-          months.set(month,(months.get(month)||0)+n);
-          totals[channel]+=n; active.add(date);
+        for (const [date, count] of Object.entries(data.days)) {
+          days.set(date, (days.get(date) || 0) + count);
+          const month = date.slice(0, 7);
+          months.set(month, (months.get(month) || 0) + count);
+          totals[channel] = (totals[channel] || 0) + count;
+          state.days.add(date);
         }
-        replies+=data.replies;
-        reactions+=data.reactions;
-        channelReplies+=data.replies;
-        channelReactions+=data.reactions;
-        cells[1].textContent=totals[channel];
-        cells[2].textContent=active.size;
-        cells[3].textContent=channelReplies;
-        cells[4].textContent=channelReactions;
+        replies += data.replies;
+        reactions += data.reactions;
+        state.replies += data.replies;
+        state.reactions += data.reactions;
+        cells[1].textContent = totals[channel] || 0;
+        cells[2].textContent = state.days.size;
+        cells[3].textContent = state.replies;
+        cells[4].textContent = state.reactions;
         pages++;
-        before=data.next;
-      } while (before !== null);
-      cells[5].textContent="Klar";
+        if (data.next) {
+          state.before = data.next;
+          cells[5].textContent = 'Delresultat';
+          queue.push(state);
+        } else {
+          cells[5].textContent = 'Klar';
+          finished++;
+        }
+      } catch {
+        cells[5].textContent = 'Ofullst�ndig';
+        failed++;
+      }
+    }
+    while (queue.length) {
+      statusLine.textContent = finished + ' av ' + channelCount + ' kanaler klara � ' + pages + ' sidor h�mtade';
+      if (resumeAt > Date.now()) {
+        await new Promise(resolve => setTimeout(resolve, resumeAt - Date.now()));
+      }
+      await Promise.all(queue.splice(0, 3).map(readPage));
     }
     const dates=[...days.keys()].sort();
     const peak=Math.max(0,...months.values());
