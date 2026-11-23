@@ -18,6 +18,25 @@ const csrf = {{ csrf|tojson }};
 const button = document.querySelector('#load');
 const statusLine = document.querySelector('#status');
 const metrics = document.querySelector('#metrics');
+const scanKey = 'osw-2026-v1-' + {{ rows['Discord-ID']|tojson }} + '-' + {{ content_access|tojson }};
+const pageStore = new Promise(resolve => {
+  const request = indexedDB.open('osw-channel-pages', 1);
+  request.onupgradeneeded = () => request.result.createObjectStore('pages');
+  request.onsuccess = () => resolve(request.result);
+  request.onerror = () => resolve(null);
+});
+async function cachedPage(key, data) {
+  const db = await pageStore;
+  if (!db) return;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('pages', data ? 'readwrite' : 'readonly');
+    const store = tx.objectStore('pages');
+    const op = data ? store.put(data, key) : store.get(key);
+    tx.oncomplete = () => resolve(op.result);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+let scanComplete = false;
 button.onclick = async () => {
   button.disabled = true;
   const daily = document.querySelector("#daily");
@@ -79,6 +98,12 @@ button.onclick = async () => {
     }
   }
   try {
+    let generation = localStorage.getItem(scanKey);
+    if (!generation || scanComplete) {
+      generation = crypto.randomUUID();
+      localStorage.setItem(scanKey, generation);
+    }
+    scanComplete = false;
     const queue = Object.keys(channels).map(channel => ({
       channel, before: '', days: new Set(), replies: 0, reactions: 0,
       cells: document.getElementById('ch-' + channel).cells
@@ -89,26 +114,31 @@ button.onclick = async () => {
       const {channel, before, cells} = state;
       cells[5].textContent = 'Läser';
       try {
-        const response = await fetch('/data/messages', {
-          method: 'POST', body: new URLSearchParams({csrf, channel, before})
-        });
-        if (response.status === 429) {
-          const {retry} = await response.json();
-          resumeAt = Math.max(resumeAt, Date.now() + 1000 * (Number(retry) || 2) + 250);
-          cells[5].textContent = 'Pausad av Discord';
-          queue.push(state);
-          return;
+        const key = [scanKey, generation, channel, before];
+        let data = await cachedPage(key);
+        if (!data) {
+          const response = await fetch('/data/messages', {
+            method: 'POST', body: new URLSearchParams({csrf, channel, before})
+          });
+          if (response.status === 429) {
+            const {retry} = await response.json();
+            resumeAt = Math.max(resumeAt, Date.now() + 1000 * (Number(retry) || 2) + 250);
+            cells[5].textContent = 'Pausad av Discord';
+            queue.push(state);
+            return;
+          }
+          if ((response.status >= 500 || response.status === 408) && (state.retries || 0) < 8) {
+            state.retries = (state.retries || 0) + 1;
+            resumeAt = Math.max(resumeAt, Date.now() + Math.min(30000, 1000 * 2 ** state.retries));
+            cells[5].textContent = 'Försöker igen';
+            queue.push(state);
+            return;
+          }
+          if (!response.ok) throw new Error();
+          state.retries = 0;
+          data = await response.json();
+          await cachedPage(key, data);
         }
-        if ((response.status >= 500 || response.status === 408) && (state.retries || 0) < 8) {
-          state.retries = (state.retries || 0) + 1;
-          resumeAt = Math.max(resumeAt, Date.now() + Math.min(30000, 1000 * 2 ** state.retries));
-          cells[5].textContent = 'Försöker igen';
-          queue.push(state);
-          return;
-        }
-        if (!response.ok) throw new Error();
-        state.retries = 0;
-        const data = await response.json();
         for (const [key, count] of Object.entries(data.written_emojis || {})) {
           writtenEmojis.set(key, (writtenEmojis.get(key) || 0) + count);
         }
@@ -131,6 +161,8 @@ button.onclick = async () => {
           dt.textContent = labels[kind];
           const link = document.createElement('a');
           link.href = 'https://discord.com/channels/1466847548864987289/' + post.channel + '/' + post.id;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
           link.textContent = '#' + channels[post.channel] + ' · ' + post.date;
           dd.append(link);
           if (kind === 'laugh' || kind === 'reaction') dd.append(' · ' + post.score + ' reaktioner');
@@ -176,6 +208,8 @@ button.onclick = async () => {
       value.textContent = count;
       daily.append(label, value);
     }
+    scanComplete = failed === 0;
+    button.textContent = scanComplete ? 'Hämta kanalhistoriken igen' : 'Fortsätt läsa kanalhistoriken';
     postStatus.textContent = failed ? 'Delresultat från lästa kanaler.' : highlights.size ? 'Från årets lästa kanalhistorik.' : 'Inga matchande inlägg hittades.';
     statusLine.textContent = failed ? finished + ' kanaler klara, ' + failed + ' ofullständiga. Summorna är delresultat.' : 'Kanalhistorik färdigläst för ' + finished + ' kanaler.';
   } catch(error){statusLine.textContent=error.message;}
