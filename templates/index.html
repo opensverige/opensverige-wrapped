@@ -1,0 +1,13 @@
+<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenSverige Wrapped 2026</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#121126;color:#fff8ea;font:1.1rem/1.55 "DM Sans",system-ui,sans-serif}main{max-width:900px;margin:auto;padding:5vh clamp(20px,6vw,80px)}header{font-weight:750;letter-spacing:.06em;border-bottom:1px solid #686078;padding-bottom:1rem}h1{font-size:clamp(3rem,9vw,6.5rem);letter-spacing:-.075em;line-height:.96;margin:.65em 0 .4em}section{background:repeating-radial-gradient(ellipse at 125% 140%,transparent 0 22px,#ffffff18 23px 31px),#5541a4;border-radius:24px;padding:clamp(24px,5vw,54px);margin:20px 0}section:nth-of-type(2){background-color:#194e55}strong{font-size:clamp(2rem,7vw,5rem);letter-spacing:-.055em;line-height:1.1}a{color:inherit}.cta,button{display:inline-block;border:0;border-radius:40px;padding:.85rem 1.4rem;background:#d6ff85;color:#151728;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}footer{margin-top:2rem}form{display:inline}a:focus-visible,button:focus-visible{outline:3px solid white;outline-offset:3px}
+</style><main><header>OpenSverige / Wrapped 2026</header>
+{% if problem %}<h1>Ett ögonblick.</h1><p>{{ problem }}</p><a href="/">Till startsidan</a>
+{% elif result is defined %}<h1>{{ 'Exempelåret' if demo else 'Ditt år' }}.</h1>
+{% if demo %}<p>Demo med påhittade siffror.</p>{% endif %}
+{% for number,label in result %}<section><strong>{{ number }}</strong><div>{{ label }}</div></section>{% else %}<p>Vi hittade inga egna inlägg i den läsbara historiken för #general och #bygg-skiten under 2026.</p>{% endfor %}
+{% if link %}<a class="cta" href="{{ link }}">Öppna ditt inlägg</a>{% endif %}<footer><a href="/">Till startsidan</a></footer>
+{% else %}<section><h1>Ditt år på<br>OpenSverige.</h1><p>Dina dagar, dina kanaler och samtalet som fick folk att svara.</p>
+{% if session.uid %}<p>Inloggad som {{ session.name }}</p><form method="post" action="/year"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button>Visa mitt år</button></form>
+{% else %}<a class="cta" href="/login">Logga in med Discord</a>{% endif %}</section><a href="/demo">Se ett exempelår</a>{% endif %}</main></html>
