@@ -11,7 +11,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <dt>Varav skärmdelning</dt><dd id="stream-total"></dd>
 <dt>Registrerade kanalbesök</dt><dd id="visit-total"></dd></dl>
 </div><button id="voice">Uppdatera rösttid</button> <button id="load">Hämta kanalhistoriken igen</button><p role="status" id="status"></p><dl id="metrics"></dl><details><summary>Egna inlägg per aktiv dag</summary><dl id="daily"></dl></details></section>
-<section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Chattstatus</th><th>Rösttid</th><th>Skärmdelning</th><th>Röstbesök</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td>{% if id in voice_ids %}<td data-voice="time">…</td><td data-voice="stream">…</td><td data-voice="visits">…</td>{% else %}<td>—</td><td>—</td><td>—</td>{% endif %}</tr>{% endfor %}</tbody></table></div></section></main>
+<section><h2>Dina inlägg att återbesöka</h2><p id="post-status">Letar i kanalhistoriken …</p><dl id="post-list"></dl></section><section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Chattstatus</th><th>Rösttid</th><th>Skärmdelning</th><th>Röstbesök</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td>{% if id in voice_ids %}<td data-voice="time">…</td><td data-voice="stream">…</td><td data-voice="visits">…</td>{% else %}<td>—</td><td>—</td><td>—</td>{% endif %}</tr>{% endfor %}</tbody></table></div></section></main>
 <script>
 const channels = {{ channels|tojson }};
 const csrf = {{ csrf|tojson }};
@@ -25,6 +25,12 @@ button.onclick = async () => {
   metrics.replaceChildren();
   for(const row of document.querySelectorAll("tr[id^=ch-]")){for(const cell of Array.from(row.cells).slice(1,5))cell.textContent="—";row.cells[5].textContent="Väntar";}
   const days = new Map(), months = new Map(), totals = {};
+  const highlights = new Map();
+  const labels = {reaction:'Flest reaktioner',laugh:'Flest 😂 och 🤣',sticker:'Senaste inlägget med klistermärke',pin:'Senaste inlägget som är fäst'};
+  const list = document.querySelector('#post-list');
+  const postStatus = document.querySelector('#post-status');
+  list.replaceChildren();
+  postStatus.textContent = 'Letar i kanalhistoriken …';
   let replies = 0, reactions = 0, pages = 0;
   function renderMetrics() {
     const dates=[...days.keys()].sort();
@@ -94,6 +100,25 @@ button.onclick = async () => {
           totals[channel] = (totals[channel] || 0) + count;
           state.days.add(date);
         }
+        for (const [kind, post] of Object.entries(data.highlights || {})) {
+          const previous = highlights.get(kind);
+          if (previous && (previous.score > post.score ||
+              (previous.score === post.score && BigInt(previous.id) >= BigInt(post.id)))) continue;
+          highlights.set(kind, {...post, channel});
+        }
+        list.replaceChildren();
+        for (const [kind, post] of highlights) {
+          const dt = document.createElement('dt'), dd = document.createElement('dd');
+          dt.textContent = labels[kind];
+          const link = document.createElement('a');
+          link.href = 'https://discord.com/channels/1466847548864987289/' + post.channel + '/' + post.id;
+          link.textContent = '#' + channels[post.channel] + ' · ' + post.date;
+          dd.append(link);
+          if (kind === 'laugh' || kind === 'reaction') dd.append(' · ' + post.score + ' reaktioner');
+          if (post.emoji.length) dd.append(' (' + post.emoji.map(([e,n])=>e+' × '+n).join(', ') + ')');
+          list.append(dt,dd);
+        }
+        if (highlights.size) postStatus.textContent = 'Delresultat medan historiken läses.';
         replies += data.replies;
         reactions += data.reactions;
         state.replies += data.replies;
@@ -132,6 +157,7 @@ button.onclick = async () => {
       value.textContent = count;
       daily.append(label, value);
     }
+    postStatus.textContent = failed ? 'Delresultat från lästa kanaler.' : highlights.size ? 'Från årets lästa kanalhistorik.' : 'Inga matchande inlägg hittades.';
     statusLine.textContent = failed ? finished + ' kanaler klara, ' + failed + ' ofullständiga. Summorna är delresultat.' : 'Kanalhistorik färdigläst för ' + finished + ' kanaler.';
   } catch(error){statusLine.textContent=error.message;}
   finally {button.disabled=false;}

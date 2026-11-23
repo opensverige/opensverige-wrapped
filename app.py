@@ -299,6 +299,7 @@ def data_messages():
     uid = member["user"]["id"]
     days = Counter()
     replies = reactions = 0
+    highlights = {}
     cutoff = False
     for msg in batch:
         day = datetime.fromisoformat(msg["timestamp"].replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Stockholm")).date()
@@ -308,8 +309,21 @@ def data_messages():
             continue
         days[day.isoformat()] += 1
         replies += int(msg["type"] == 19)
-        reactions += sum(item["count"] for item in msg.get("reactions", []))
-    return {"days": days, "replies": replies, "reactions": reactions,
+        emoji = {item["emoji"]["name"]: item["count"] for item in msg.get("reactions", [])
+                 if item["emoji"].get("name")}
+        total = sum(item["count"] for item in msg.get("reactions", []))
+        reactions += total
+        scores = {
+            "reaction": total,
+            "laugh": emoji.get("😂", 0) + emoji.get("🤣", 0),
+            "sticker": int(bool(msg.get("sticker_items"))),
+            "pin": int(bool(msg.get("pinned"))),
+        }
+        for kind, score in scores.items():
+            if score and score > highlights.get(kind, {}).get("score", 0):
+                highlights[kind] = {"score":score, "date":day.isoformat(), "id":msg["id"],
+                                    "emoji":sorted(emoji.items(), key=lambda pair: -pair[1])[:3]}
+    return {"days": days, "replies": replies, "reactions": reactions, "highlights":highlights,
             "next": batch[-1]["id"] if len(batch) == 100 and not cutoff else None}
 
 @app.post("/data/voice")
