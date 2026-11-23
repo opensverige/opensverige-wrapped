@@ -165,7 +165,7 @@ def authenticated_member():
     return member
 
 
-@app.post("/year")
+@app.post("/memory")
 def year():
     member = authenticated_member()
     if not isinstance(member, dict):
@@ -252,6 +252,7 @@ def readable_channels(member):
             and can_read_history(bot, guild, c)}
 
 
+@app.post("/year")
 @app.post("/data")
 def data():
     member = authenticated_member()
@@ -271,7 +272,7 @@ def data():
         "Tilldelade roller": len(member.get("roles", [])),
         "Boostar sedan": local_date(member.get("premium_since")),
     }
-    return render_template("data.html", rows=rows, channels=readable_channels(member), csrf=form_token())
+    return render_template("data.html", story=request.path == "/year", rows=rows, channels=readable_channels(member), csrf=form_token())
 
 
 @app.post("/data/messages")

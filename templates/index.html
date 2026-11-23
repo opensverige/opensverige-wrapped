@@ -27,7 +27,7 @@ footer { margin-top: 24px; }
 </style><header><nav><b>OpenSverige</b><span>Wrapped / 2026</span></nav></header><main>
 {% if problem %}<h1>Ett ögonblick.</h1><p>{{ problem }}</p><a href="/">Till startsidan</a>
 {% elif result is defined %}<h1>{{ 'Exempelåret' if demo else 'Ditt år' }}.</h1>
-{% if demo %}<p>Demo med påhittade siffror.</p>{% endif %}
+{% if demo %}<p>Demo med påhittade siffror.</p>{% include "share.html" %}{% endif %}
 {% for number,label in result %}<section><strong>{{ number }}</strong><div>{{ label }}</div></section>{% else %}<p>Vi hittade inga egna inlägg i den läsbara historiken för #general och #bygg-skiten under 2026.</p>{% endfor %}
 {% if link %}<a class="cta" href="{{ link }}">Öppna ditt inlägg</a>{% endif %}<footer><a href="/">Till startsidan</a></footer>
 {% else %}<section class="hero"><h1>{% if member %}Hej, {{ member }}!{% else %}Ditt år på OpenSverige.{% endif %}</h1><p>Dina dagar, dina kanaler och samtalet som fick folk att svara.</p>

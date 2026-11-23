@@ -1,0 +1,16 @@
+<section id="share" data-demo="{{ 'yes' if demo else 'no' }}">
+  <h2>Ditt LinkedIn-kort</h2>
+  <canvas id="poster" width="1080" height="1350" role="img" aria-label="Förhandsvisning av ditt årskort"></canvas>
+  <div id="share-actions" hidden>
+    <p><label for="caption">Förslag på inlägg</label><br><textarea id="caption" rows="4"></textarea></p>
+    <button type="button" id="download-poster">Ladda ned PNG</button>
+    <button type="button" id="copy-caption">Kopiera text</button>
+    <p id="share-message" role="status"></p>
+  </div>
+</section>
+<style>
+#poster{display:block;width:min(100%,440px);height:auto;border-radius:10px}
+#caption{font:inherit;color:inherit;padding:.7em;width:100%;box-sizing:border-box;border:1px solid #aba89e;border-radius:8px}
+#share-actions button{margin:.2em .4em .2em 0}
+</style>
+<script src="{{ url_for('static',filename='wrapped-card.js') }}"></script>
