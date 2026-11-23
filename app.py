@@ -277,7 +277,17 @@ def data():
     channels = readable_channels(member)
     _, catalog, _ = channel_catalog()
     voice_ids = {channel["id"] for channel in catalog if channel["type"] in (2, 13)}
-    return render_template("data.html", rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
+    content_access = None
+    try:
+        application = requests.get(f"{API}/applications/@me",
+                                   headers={"Authorization": "Bot " + os.environ["DISCORD_BOT_TOKEN"]},
+                                   timeout=5)
+        application.raise_for_status()
+        flags = application.json()["flags"]
+        content_access = bool(flags & ((1 << 18) | (1 << 19)))
+    except (requests.RequestException, KeyError, ValueError):
+        pass
+    return render_template("data.html", content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
 
 
 CUSTOM_EMOJI = re.compile(r"<a?:([A-Za-z0-9_]+):([0-9]+)>")

@@ -66,7 +66,9 @@ button.onclick = async () => {
     );
     rows.unshift(
       ['Kanal med flest egna inlägg', leaders(Object.entries(totals).map(([id,n]) => ['#'+channels[id],n]))],
-      ['Mest använda emoji i dina egna inlägg', writtenEmojis.size
+      ['Mest använda emoji i dina egna inlägg', {{ content_access|tojson }} === false
+        ? 'Kan inte avgöras · boten saknar Message Content Intent'
+        : writtenEmojis.size
         ? leaders([...writtenEmojis].map(([key,n]) => [key.split('·')[0],n]))
         : 'Ingen emoji hittad i den lästa texten']
     );
@@ -97,7 +99,15 @@ button.onclick = async () => {
           queue.push(state);
           return;
         }
+        if ((response.status >= 500 || response.status === 408) && (state.retries || 0) < 8) {
+          state.retries = (state.retries || 0) + 1;
+          resumeAt = Math.max(resumeAt, Date.now() + Math.min(30000, 1000 * 2 ** state.retries));
+          cells[5].textContent = 'Försöker igen';
+          queue.push(state);
+          return;
+        }
         if (!response.ok) throw new Error();
+        state.retries = 0;
         const data = await response.json();
         for (const [key, count] of Object.entries(data.written_emojis || {})) {
           writtenEmojis.set(key, (writtenEmojis.get(key) || 0) + count);
@@ -155,7 +165,7 @@ button.onclick = async () => {
       if (resumeAt > Date.now()) {
         await new Promise(resolve => setTimeout(resolve, resumeAt - Date.now()));
       }
-      await Promise.all(queue.splice(0, 3).map(readPage));
+      await Promise.all(queue.splice(0, 1).map(readPage));
       renderMetrics();
     }
     renderMetrics();
