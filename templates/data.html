@@ -272,14 +272,15 @@ button.onclick = async () => {
       for (const [channel,state] of Object.entries(states)) {
         const job = snapshot.jobs[channel];
         if (job?.done) finished++;
-        state.cells[5].textContent = job?.done ? 'Klar' : job?.retry ? 'Försöker igen' : 'Synkar';
+        state.cells[5].textContent = job?.done ? (snapshot.more ? 'Läser sparad statistik' : 'Klar') : job?.retry ? 'Försöker igen' : 'Synkar';
         if (job?.baseline && !state.days.size) {
           for (let i=1;i<=4;i++) state.cells[i].textContent='0';
         }
       }
       renderMetrics();
       if (!snapshot.more && finished === channelCount) break;
-      showScanStatus('Synkar i bakgrunden', finished+' av '+channelCount+' kanaler klara. Du kan stänga sidan.');
+      if (snapshot.more) showScanStatus('Läser sparad statistik', 'Hämtar dina resultat från databasen …');
+      else showScanStatus('Synkar i bakgrunden', finished+' av '+channelCount+' kanaler klara. Du kan stänga sidan.');
       if (!snapshot.more) await new Promise(resolve => setTimeout(resolve,4000));
     }
     renderMetrics();
