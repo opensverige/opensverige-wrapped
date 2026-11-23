@@ -302,6 +302,18 @@ YEAR_PHRASES = {
     "bygg skiten": re.compile(r"\bbygg\s+skiten\b", re.IGNORECASE),
 }
 
+PHRASE_WORD = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
+PHRASE_BREAK = re.compile(r"https?://\S+|```[\s\S]*?(?:```|$)|`[^`\n]*`|<[^>\n]+>|[.!?,:;\n\r]", re.IGNORECASE)
+
+def message_phrases(content):
+    """Count a phrase at most once in each message, even if it is repeated."""
+    result = set()
+    for segment in PHRASE_BREAK.split(content.casefold()):
+        words = PHRASE_WORD.findall(segment)
+        for size in range(2, min(5, len(words)) + 1):
+            result.update(" ".join(words[i:i+size]) for i in range(len(words)-size+1))
+    return result
+
 def written_emojis(content):
     for match in CUSTOM_EMOJI.finditer(content):
         yield f":{match[1]}:·{match[2]}"
@@ -331,6 +343,7 @@ def data_messages():
     replies = reactions = 0
     written = Counter()
     phrases = Counter()
+    discovered = Counter()
     highlights = {}
     cutoff = False
     for msg in batch:
@@ -341,6 +354,7 @@ def data_messages():
             continue
         days[day.isoformat()] += 1
         content = msg.get("content") or ""
+        discovered.update(message_phrases(content))
         written.update(written_emojis(content))
         for phrase, pattern in YEAR_PHRASES.items():
             phrases[phrase] += len(pattern.findall(content))
@@ -359,7 +373,7 @@ def data_messages():
             if score and score > highlights.get(kind, {}).get("score", 0):
                 highlights[kind] = {"score":score, "date":day.isoformat(), "id":msg["id"],
                                     "emoji":sorted(emoji.items(), key=lambda pair: -pair[1])[:3]}
-    return {"days": days, "replies": replies, "reactions": reactions, "highlights":highlights, "written_emojis":written, "phrases": phrases,
+    return {"days": days, "replies": replies, "reactions": reactions, "highlights":highlights, "written_emojis":written, "phrases": phrases, "discovered": discovered,
             "next": batch[-1]["id"] if len(batch) == 100 and not cutoff else None}
 
 @app.post("/data/voice")
