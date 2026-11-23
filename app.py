@@ -1,3 +1,4 @@
+from worker import history
 import json
 import os
 import re
@@ -70,6 +71,10 @@ def home():
     user = current_user()
     member = None
     if user:
+        uid = discord_identity(user)
+        member_record = api(f"/guilds/{GUILD}/members/{uid}", "Bot " + os.environ["DISCORD_BOT_TOKEN"])
+        with history.connect() as db:
+            history.enqueue(db,uid,list(readable_channels(member_record)))
         profile = next((entry.get("identity_data") or {} for entry in user.get("identities", [])
                         if entry.get("provider") == "discord"), {})
         member = (profile.get("preferred_username") or profile.get("user_name")
@@ -154,7 +159,7 @@ def authenticated_member():
     if not request.cookies.get("osw_access"):
         return redirect("/login")
     if request.method == "POST" and not secrets.compare_digest(form_token(), request.form.get("csrf", "")):
-        if request.path in ("/data/messages", "/data/voice"):
+        if request.path.startswith("/data/"):
             return redirect("/login")
         abort(403)
     user = current_user()
@@ -296,34 +301,10 @@ def data():
     return render_template("data.html", year_view=request.path == "/mitt-ar", content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
 
 
-CUSTOM_EMOJI = re.compile(r"<a?:([A-Za-z0-9_]+):([0-9]+)>")
-
-YEAR_PHRASES = {
-    "god morgon": re.compile(r"\bgod\s*morgon\b", re.IGNORECASE),
-    "bygg skiten": re.compile(r"\bbygg\s+skiten\b", re.IGNORECASE),
-}
-
-PHRASE_WORD = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
-PHRASE_BREAK = re.compile(r"https?://\S+|```[\s\S]*?(?:```|$)|`[^`\n]*`|<[^>\n]+>|[.!?,:;\n\r]", re.IGNORECASE)
-
-def message_phrases(content):
-    """Count a phrase at most once in each message, even if it is repeated."""
-    result = set()
-    for segment in PHRASE_BREAK.split(content.casefold()):
-        words = PHRASE_WORD.findall(segment)
-        for size in range(2, min(5, len(words)) + 1):
-            result.update(" ".join(words[i:i+size]) for i in range(len(words)-size+1))
-    return result
-
-def written_emojis(content):
-    for match in CUSTOM_EMOJI.finditer(content):
-        yield f":{match[1]}:·{match[2]}"
-    for item in unicode_emoji.emoji_list(CUSTOM_EMOJI.sub("", content)):
-        yield item["emoji"].replace("\ufe0f", "")
-
 @app.post("/data/signatures")
 def signature_quotes():
-    if not isinstance(authenticated_member(), dict):
+    member = authenticated_member()
+    if not isinstance(member, dict):
         return {"error": "Logga in igen."}, 401
     mode = request.form.get("mode", "signature")
     if mode not in ("signature", "quiet"):
@@ -339,7 +320,13 @@ def signature_quotes():
         isinstance(value, str) and 0 < len(value) <= (350 if mode == "quiet" else 150) for value in phrases
     ):
         abort(400)
-    key = os.getenv("OPENAI_API_KEY")
+    uid = member["user"]["id"]
+    digest = hashlib.sha256(("v1:" + mode + ":" + items).encode()).hexdigest()
+    with history.connect() as db:
+        cached = history.get_generated(db, uid, mode, digest)
+    if cached is not None:
+        return cached
+    key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEYS")
     if not key:
         return {"error": "AI-urvalet saknar anslutning."}, 503
     response = requests.post("https://api.openai.com/v1/chat/completions",
@@ -368,7 +355,10 @@ def signature_quotes():
             raise ValueError()
     except (IndexError, KeyError, ValueError, TypeError):
         return {"error":"Ogiltigt svar från citaturvalet."}, 502
-    return {"ids": list(dict.fromkeys(i for i in ids if type(i) is int and 0 <= i < len(phrases)))[:3]}
+    result = {"ids":list(dict.fromkeys(i for i in ids if type(i) is int and 0 <= i < len(phrases)))[:3]}
+    with history.connect() as db:
+        history.save_generated(db,uid,mode,digest,{**result,"selected":[phrases[i] for i in result["ids"]]})
+    return result
 
 
 @app.post("/data/memory-source")
@@ -393,65 +383,21 @@ def memory_source():
     return {"text":post.get("content",""), "channel":channel, "date":day.isoformat()}
 
 
-@app.post("/data/messages")
-def data_messages():
+@app.post("/data/history")
+def history_snapshot():
     member = authenticated_member()
     if not isinstance(member, dict):
-        return {"error": "Logga in igen."}, 401
-    channel = request.form.get("channel")
-    cursor = request.form.get("before") or str((1798758000000 - 1420070400000) << 22)
-    if channel not in readable_channels(member):
-        abort(403)
-    if not cursor.isascii() or not cursor.isdigit() or len(cursor) > 20:
-        abort(400)
-    response = requests.get(f"{API}/channels/{channel}/messages",
-                            headers={"Authorization": "Bot " + os.environ["DISCORD_BOT_TOKEN"]},
-                            params={"limit": 100, "before": cursor}, timeout=20)
-    if response.status_code == 429:
-        return {"retry": max(1, float(response.json()["retry_after"]))}, 429
-    response.raise_for_status()
-    batch = response.json()
+        return {"error":"Logga in igen."}, 401
     uid = member["user"]["id"]
-    days = Counter()
-    replies = reactions = 0
-    written = Counter()
-    phrases = Counter()
-    discovered = Counter()
-    quiet_posts = []
-    highlights = {}
-    cutoff = False
-    for msg in batch:
-        day = datetime.fromisoformat(msg["timestamp"].replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Stockholm")).date()
-        if day.year < 2026:
-            cutoff = True
-        if day.year != 2026 or msg["author"]["id"] != uid or msg["type"] not in (0, 19):
-            continue
-        days[day.isoformat()] += 1
-        content = msg.get("content") or ""
-        discovered.update(message_phrases(content))
-        written.update(written_emojis(content))
-        for phrase, pattern in YEAR_PHRASES.items():
-            phrases[phrase] += len(pattern.findall(content))
-        replies += int(msg["type"] == 19)
-        emoji = {item["emoji"]["name"]: item["count"] for item in msg.get("reactions", [])
-                 if item["emoji"].get("name")}
-        total = sum(item["count"] for item in msg.get("reactions", []))
-        reactions += total
-        line = content.strip()
-        if total <= 1 and 5 <= len(line) <= 350 and not re.search(r"https?://|<[@#]|@everyone|@here|^`|^>", line, re.I | re.M):
-            quiet_posts.append({"id":msg["id"], "text":line, "reactions":total})
-        scores = {
-            "reaction": total,
-            "laugh": emoji.get("😂", 0) + emoji.get("🤣", 0),
-            "sticker": int(bool(msg.get("sticker_items"))),
-            "pin": int(bool(msg.get("pinned"))),
-        }
-        for kind, score in scores.items():
-            if score and score > highlights.get(kind, {}).get("score", 0):
-                highlights[kind] = {"score":score, "date":day.isoformat(), "id":msg["id"],
-                                    "emoji":sorted(emoji.items(), key=lambda pair: -pair[1])[:3]}
-    return {"days": days, "replies": replies, "reactions": reactions, "highlights":highlights, "written_emojis":written, "phrases": phrases, "discovered": discovered, "quiet_posts":quiet_posts,
-            "next": batch[-1]["id"] if len(batch) == 100 and not cutoff else None}
+    channels = list(readable_channels(member))
+    after = request.form.get("after","0")
+    if not after.isascii() or not after.isdigit() or len(after)>18:
+        abort(400)
+    with history.connect() as db:
+        if request.form.get("refresh") == "1":
+            history.enqueue(db, uid, channels)
+        return history.results(db,uid,channels,int(after))
+
 
 @app.post("/data/voice")
 def voice_data():

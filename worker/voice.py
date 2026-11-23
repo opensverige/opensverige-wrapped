@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from history_runner import sync_history
 import discord
 import psycopg
 
@@ -106,6 +107,16 @@ async def main():
             raise RuntimeError("Another OpenSverige collector is active")
         async with VoiceCollector(db) as client:
             async with asyncio.TaskGroup() as group:
+                async def run_sync():
+                    while not client.is_ready():
+                        await asyncio.sleep(1)
+                    while True:
+                        try:
+                            await sync_history(client,GUILD)
+                        except Exception:
+                            LOG.exception("History sync interrupted; retrying")
+                            await asyncio.sleep(10)
+                group.create_task(run_sync())
                 group.create_task(client.persist())
                 group.create_task(client.start(os.environ["DISCORD_BOT_TOKEN"]))
 
