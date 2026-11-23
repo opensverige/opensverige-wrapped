@@ -1,5 +1,6 @@
 import os
 import secrets
+import hmac
 import hashlib
 import base64
 from collections import Counter, defaultdict
@@ -55,10 +56,15 @@ def private(response):
     return response
 
 
+def form_token():
+    key = request.cookies.get("osw_access", "").encode()
+    return hmac.new(key, b"osw:generate-year", hashlib.sha256).hexdigest()
+
+
 @app.route("/")
 def home():
     user = current_user()
-    return render_template("index.html", member=user and user["user_metadata"].get("full_name", "Discord-medlem"))
+    return render_template("index.html", csrf=form_token() if user else None, member=user and user["user_metadata"].get("full_name", "Discord-medlem"))
 
 
 @app.route("/login")
@@ -135,7 +141,7 @@ def cards(uid):
 
 @app.post("/year")
 def year():
-    if request.headers.get("Origin") != CALLBACK.rsplit("/", 1)[0]:
+    if not request.cookies.get("osw_access") or not secrets.compare_digest(form_token(), request.form.get("csrf", "")):
         abort(403)
     user = current_user()
     if not user:
