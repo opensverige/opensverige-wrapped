@@ -286,6 +286,10 @@ def data():
         "Boostar sedan": local_date(member.get("premium_since")),
     }
     channels = readable_channels(member)
+    year_view = request.path in ('/mitt-ar', '/year')
+    if year_view:
+        with history.connect() as db:
+            history.enqueue(db, profile['id'], list(channels))
     _, catalog, _ = channel_catalog()
     voice_ids = {channel["id"] for channel in catalog if channel["type"] in (2, 13)}
     content_access = None
@@ -298,7 +302,7 @@ def data():
         content_access = bool(flags & ((1 << 18) | (1 << 19)))
     except (requests.RequestException, KeyError, ValueError):
         pass
-    return render_template("data.html", year_view=request.path == "/mitt-ar", content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
+    return render_template("data.html", year_view=year_view, content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
 
 
 @app.post("/data/signatures")

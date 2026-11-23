@@ -10,7 +10,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 #daily summary{cursor:pointer;padding:.55rem 0;border-bottom:1px solid #eee}#daily li{padding:.55rem 0}#daily li div{white-space:pre-wrap;overflow-wrap:anywhere}
 </style><main><header><a href="/">OpenSverige Wrapped</a></header>{% if year_view %}
 <h1>Mitt år i OpenSverige</h1>
-<section><div id="year-preview">Ditt kort skapas när kanalhistoriken är färdigläst.</div>
+<section><div id="year-preview">Dina inlägg sparas i databasen. När alla läsbara kanalchattar är synkade skapas ditt år från de sparade uppgifterna.</div>
 <button id="year-download" hidden>Ladda ned kortet som PNG</button> <button id="year-video" hidden>Ladda ned video (MP4)</button><p id="video-status" role="status"></p></section>
 <section id="memory-editor" hidden><h2>Mitt minne från året</h2>
 <form id="memory-form"><label>Länk till ditt Discord-inlägg<br><input type="url" name="link" required placeholder="https://discord.com/channels/…"></label>
@@ -104,6 +104,7 @@ function dayDetails(date, count) {
   return details;
 }
 let scanComplete = false;
+let historyAlreadyQueued = {{ year_view|tojson }};
 button.onclick = async () => {
   button.disabled = true;
   showScanStatus('Läser kanalhistoriken', 'Öppnar sparade framsteg …');
@@ -307,7 +308,8 @@ button.onclick = async () => {
         pages++;
     }
     let after = '0';
-    let refresh = true;
+    let refresh = !historyAlreadyQueued;
+    historyAlreadyQueued = false;
     while (true) {
       const response = await fetch('/data/history',{method:'POST',
         body:new URLSearchParams({csrf,after,refresh:refresh?'1':'0'})});
