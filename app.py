@@ -1,4 +1,6 @@
 import os
+import re
+import emoji as unicode_emoji
 import secrets
 import hmac
 import hashlib
@@ -278,6 +280,14 @@ def data():
     return render_template("data.html", rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
 
 
+CUSTOM_EMOJI = re.compile(r"<a?:([A-Za-z0-9_]+):([0-9]+)>")
+
+def written_emojis(content):
+    for match in CUSTOM_EMOJI.finditer(content):
+        yield f":{match[1]}:·{match[2]}"
+    for item in unicode_emoji.emoji_list(CUSTOM_EMOJI.sub("", content)):
+        yield item["emoji"].replace("\ufe0f", "")
+
 @app.post("/data/messages")
 def data_messages():
     member = authenticated_member()
@@ -299,6 +309,7 @@ def data_messages():
     uid = member["user"]["id"]
     days = Counter()
     replies = reactions = 0
+    written = Counter()
     highlights = {}
     cutoff = False
     for msg in batch:
@@ -308,6 +319,7 @@ def data_messages():
         if day.year != 2026 or msg["author"]["id"] != uid or msg["type"] not in (0, 19):
             continue
         days[day.isoformat()] += 1
+        written.update(written_emojis(msg.get("content") or ""))
         replies += int(msg["type"] == 19)
         emoji = {item["emoji"]["name"]: item["count"] for item in msg.get("reactions", [])
                  if item["emoji"].get("name")}
@@ -323,7 +335,7 @@ def data_messages():
             if score and score > highlights.get(kind, {}).get("score", 0):
                 highlights[kind] = {"score":score, "date":day.isoformat(), "id":msg["id"],
                                     "emoji":sorted(emoji.items(), key=lambda pair: -pair[1])[:3]}
-    return {"days": days, "replies": replies, "reactions": reactions, "highlights":highlights,
+    return {"days": days, "replies": replies, "reactions": reactions, "highlights":highlights, "written_emojis":written,
             "next": batch[-1]["id"] if len(batch) == 100 and not cutoff else None}
 
 @app.post("/data/voice")

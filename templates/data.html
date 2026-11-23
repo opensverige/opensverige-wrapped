@@ -26,6 +26,7 @@ button.onclick = async () => {
   for(const row of document.querySelectorAll("tr[id^=ch-]")){for(const cell of Array.from(row.cells).slice(1,5))cell.textContent="—";row.cells[5].textContent="Väntar";}
   const days = new Map(), months = new Map(), totals = {};
   const highlights = new Map();
+  const writtenEmojis = new Map();
   const labels = {reaction:'Flest reaktioner',laugh:'Flest 😂 och 🤣',sticker:'Senaste inlägget med klistermärke',pin:'Senaste inlägget som är fäst'};
   const list = document.querySelector('#post-list');
   const postStatus = document.querySelector('#post-status');
@@ -60,9 +61,14 @@ button.onclick = async () => {
       ['Månader du skrev i', months.size],
       ['Flest inlägg på en dag', leaders([...days])],
       ['Veckodag med flest inlägg', leaders([...weekdayCounts])],
-      ['Kanal med flest egna inlägg', leaders(Object.entries(totals).map(([id,n]) => ['#'+channels[id],n]))],
       ['Inlägg per aktiv dag', days.size ? (count / days.size).toLocaleString('sv-SE',{maximumFractionDigits:1}) : '—'],
       ['Andel egna inlägg som var direkta svar', count ? (replies / count).toLocaleString('sv-SE',{style:'percent'}) : '—']
+    );
+    rows.unshift(
+      ['Kanal med flest egna inlägg', leaders(Object.entries(totals).map(([id,n]) => ['#'+channels[id],n]))],
+      ['Mest använda emoji i dina egna inlägg', writtenEmojis.size
+        ? leaders([...writtenEmojis].map(([key,n]) => [key.split('·')[0],n]))
+        : 'Ingen emoji hittad i den lästa texten']
     );
     metrics.replaceChildren();
     for(const [label,value] of rows){
@@ -93,6 +99,9 @@ button.onclick = async () => {
         }
         if (!response.ok) throw new Error();
         const data = await response.json();
+        for (const [key, count] of Object.entries(data.written_emojis || {})) {
+          writtenEmojis.set(key, (writtenEmojis.get(key) || 0) + count);
+        }
         for (const [date, count] of Object.entries(data.days)) {
           days.set(date, (days.get(date) || 0) + count);
           const month = date.slice(0, 7);
