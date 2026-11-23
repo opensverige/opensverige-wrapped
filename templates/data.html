@@ -11,6 +11,12 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <h1>Mitt år i OpenSverige</h1>
 <section><div id="year-preview">Ditt kort skapas när kanalhistoriken är färdigläst.</div>
 <button id="year-download" hidden>Ladda ned kortet som PNG</button> <button id="year-video" hidden>Ladda ned video (MP4)</button><p id="video-status" role="status"></p></section>
+<section id="memory-editor" hidden><h2>Mitt minne från året</h2>
+<form id="memory-form"><label>Länk till ditt Discord-inlägg<br><input type="url" name="link" required placeholder="https://discord.com/channels/…"></label>
+<button>Hämta originalet</button></form>
+<div id="memory-review" hidden><blockquote id="memory-original"></blockquote><a id="memory-link" target="_blank" rel="noopener noreferrer">Läs samtalet i Discord</a>
+<form id="memory-select"><p><label>Min rubrik i filmen<br><input name="title" required maxlength="64" placeholder="Vad vill du minnas?"></label></p><button>Använd i min film</button></form></div>
+<button id="memory-remove" hidden>Ta bort minnet ur filmen</button><p id="memory-status" role="status"></p></section>
 <a href="/data">Visa mina data</a>
 <script src="{{ url_for('static',filename='year-player.js') }}"></script>
 {% else %}<h1>Mina data i OpenSverige</h1>{% endif %}

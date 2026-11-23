@@ -32,7 +32,16 @@ export function paint(canvas, stats, frame) {
   ctx.translate(0,48*(1-enter)**2);
   ctx.globalAlpha=Math.max(.1,enter);
   label(resolve(scene.title),695,65,ink,600);
-  label(scene.value(stats),925,157,ink,800);
+  if (stats.memory && index === 3) {
+    ctx.font = '800 65px '+theme.font;
+    const lines = [''];
+    for (const word of stats.memory.title.split(/\s+/)) {
+      const candidate = (lines.at(-1)+' '+word).trim();
+      if (lines.at(-1) && ctx.measureText(candidate).width > 944) lines.push(word);
+      else lines[lines.length-1] = candidate;
+    }
+    lines.forEach((line,i)=>label(line,790+i*70,65,ink,800));
+  } else label(scene.value(stats),925,157,ink,800);
   label(scene.detail(stats),1022,47,ink,550);
   ctx.restore();
   ctx.fillStyle=accent;

@@ -12,12 +12,62 @@ function YearCard({stats}) {
   useLayoutEffect(() => paint(ref.current,stats,frame),[stats,frame]);
   return <><Html5Audio src={soundtrack}/><canvas ref={ref} width={1080} height={1350} style={{width:'100%',height:'100%'}}/></>;
 }
+let root;
 window.showYear = stats => {
   const host = document.querySelector('#year-preview');
-  const root = createRoot(host);
-  root.render(<Player component={YearCard} inputProps={{stats}} durationInFrames={frames}
-    compositionWidth={1080} compositionHeight={1350} fps={fps} controls
-    style={{width:'100%',maxWidth:440,aspectRatio:'4/5'}}/>);
+  root ??= createRoot(host);
+  const editor = document.querySelector('#memory-editor');
+  function render(start = 0) {
+    root.render(<Player key={JSON.stringify(stats.memory || null)} initialFrame={start}
+      component={YearCard} inputProps={{stats:{...stats}}} durationInFrames={frames}
+      compositionWidth={1080} compositionHeight={1350} fps={fps} controls
+      style={{width:'100%',maxWidth:440,aspectRatio:'4/5'}}/>);
+  }
+  if (editor) {
+    editor.hidden = false;
+    const form = editor.querySelector('#memory-form');
+    const review = editor.querySelector('#memory-review');
+    const select = editor.querySelector('#memory-select');
+    const remove = editor.querySelector('#memory-remove');
+    const status = editor.querySelector('#memory-status');
+    let source;
+    review.hidden = remove.hidden = true;
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const link = form.elements.link.value.trim();
+      form.querySelector('button').disabled = true;
+      review.hidden = true;
+      status.textContent = 'Hämtar ditt inlägg …';
+      try {
+        const response = await fetch('/data/memory-source',{method:'POST',body:new URLSearchParams({csrf,link})});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        source = {channel:channels[data.channel],date:data.date};
+        editor.querySelector('#memory-original').textContent = data.text || 'Inlägg utan text';
+        editor.querySelector('#memory-link').href = link;
+        select.reset();
+        review.hidden = false;
+        status.textContent = '';
+      } catch(error) { status.textContent = error.message || 'Kunde inte läsa ditt inlägg.'; }
+      finally { form.querySelector('button').disabled = false; }
+    };
+    select.onsubmit = event => {
+      event.preventDefault();
+      const title = select.elements.title.value.trim();
+      if (!title) return;
+      stats.memory = {...source,title};
+      render(3*frames/6+fps);
+      remove.hidden = false;
+      status.textContent = 'Ditt minne är med i förhandsvisningen och videon.';
+    };
+    remove.onclick = () => {
+      delete stats.memory;
+      render();
+      remove.hidden = true;
+      status.textContent = 'Minnet är borttaget ur filmen.';
+    };
+  }
+  render();
   const video = document.querySelector('#year-video');
   const status = document.querySelector('#video-status');
   video.hidden = false;

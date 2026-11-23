@@ -371,6 +371,28 @@ def signature_quotes():
     return {"ids": list(dict.fromkeys(i for i in ids if type(i) is int and 0 <= i < len(phrases)))[:3]}
 
 
+@app.post("/data/memory-source")
+def memory_source():
+    member = authenticated_member()
+    if not isinstance(member, dict):
+        return {"error":"Logga in igen."}, 401
+    match = re.fullmatch(r"https://discord\.com/channels/" + GUILD + r"/(\d{17,20})/(\d{17,20})/?",
+                         request.form.get("link", "").strip())
+    if not match or match[1] not in readable_channels(member):
+        return {"error":"Välj ett eget inlägg i en läsbar kanal i OpenSverige."}, 400
+    channel, message = match.groups()
+    response = requests.get(f"{API}/channels/{channel}/messages/{message}",
+                            headers={"Authorization":"Bot " + os.environ["DISCORD_BOT_TOKEN"]}, timeout=15)
+    if response.status_code in (403,404):
+        return {"error":"Inlägget är inte tillgängligt."}, 404
+    response.raise_for_status()
+    post = response.json()
+    day = datetime.fromisoformat(post["timestamp"]).astimezone(ZoneInfo("Europe/Stockholm")).date()
+    if post["author"]["id"] != member["user"]["id"] or day.year != 2026:
+        return {"error":"Välj ett av dina egna inlägg från 2026."}, 400
+    return {"text":post.get("content",""), "channel":channel, "date":day.isoformat()}
+
+
 @app.post("/data/messages")
 def data_messages():
     member = authenticated_member()
