@@ -190,6 +190,68 @@ from werkzeug.exceptions import HTTPException
 def issue(error):
     return render_template("index.html", problem=error.description), error.code
 
+# Cache server metadata briefly; the requesting member is fetched for every request.
+from time import monotonic
+from threading import Lock
+
+_catalog_lock = Lock()
+_catalog = None
+_catalog_until = 0
+
+
+def channel_catalog():
+    global _catalog, _catalog_until
+    with _catalog_lock:
+        if monotonic() >= _catalog_until:
+            auth = "Bot " + os.environ["DISCORD_BOT_TOKEN"]
+            guild = api(f"/guilds/{GUILD}", auth)
+            channels = api(f"/guilds/{GUILD}/channels", auth)
+            bot = api(f"/guilds/{GUILD}/members/1574347988728414309", auth)
+            _catalog = guild, channels, bot
+            _catalog_until = monotonic() + 15
+        return _catalog
+
+
+def can_read_history(member, guild, channel):
+    uid = member["user"]["id"]
+    if uid == guild["owner_id"]:
+        return True
+    roles = set(member["roles"])
+    permissions = 0
+    for role in guild["roles"]:
+        if role["id"] == GUILD or role["id"] in roles:
+            permissions |= int(role["permissions"])
+    if permissions & 8:
+        return True
+    # Discord applies @everyone, combined roles, then the member overwrite.
+    layers = [[0, 0] for _ in range(3)]
+    for overwrite in channel["permission_overwrites"]:
+        target = overwrite["id"]
+        if target == GUILD:
+            layer = layers[0]
+        elif overwrite["type"] == 0 and target in roles:
+            layer = layers[1]
+        elif overwrite["type"] == 1 and target == uid:
+            layer = layers[2]
+        else:
+            continue
+        layer[0] |= int(overwrite["deny"])
+        layer[1] |= int(overwrite["allow"])
+    for deny, allow in layers:
+        permissions = (permissions & ~deny) | allow
+    required = (1 << 10) | (1 << 16)
+    if channel["type"] in (2, 13):
+        required |= 1 << 20
+    return permissions & required == required
+
+
+def readable_channels(member):
+    guild, channels, bot = channel_catalog()
+    return {c["id"]: c["name"] for c in sorted(channels, key=lambda c: c.get("position", 0))
+            if c["type"] in (0, 2, 5, 13) and can_read_history(member, guild, c)
+            and can_read_history(bot, guild, c)}
+
+
 @app.post("/data")
 def data():
     member = authenticated_member()
@@ -209,7 +271,7 @@ def data():
         "Tilldelade roller": len(member.get("roles", [])),
         "Boostar sedan": local_date(member.get("premium_since")),
     }
-    return render_template("data.html", rows=rows, channels=CHANNELS, csrf=form_token())
+    return render_template("data.html", rows=rows, channels=readable_channels(member), csrf=form_token())
 
 
 @app.post("/data/messages")
@@ -219,7 +281,9 @@ def data_messages():
         return {"error": "Logga in igen."}, 401
     channel = request.form.get("channel")
     cursor = request.form.get("before") or str((1798758000000 - 1420070400000) << 22)
-    if channel not in CHANNELS or not cursor.isascii() or not cursor.isdigit() or len(cursor) > 20:
+    if channel not in readable_channels(member):
+        abort(403)
+    if not cursor.isascii() or not cursor.isdigit() or len(cursor) > 20:
         abort(400)
     response = requests.get(f"{API}/channels/{channel}/messages",
                             headers={"Authorization": "Bot " + os.environ["DISCORD_BOT_TOKEN"]},

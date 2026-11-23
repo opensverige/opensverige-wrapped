@@ -3,9 +3,10 @@
 <title>Mina data · OpenSverige Wrapped</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#fcfaf6;color:#191914;font:1rem/1.5 "Bricolage Grotesque","Segoe UI",sans-serif}main{max-width:840px;margin:auto;padding:32px 20px}header{border-bottom:1px solid #dedbd4;padding-bottom:16px}a{color:#884b21}section{background:white;border:1px solid #dedbd4;border-radius:14px;padding:clamp(16px,4vw,32px);margin:18px 0}h1{font-size:clamp(2.4rem,7vw,4.4rem);letter-spacing:-.06em;margin:.4em 0}h2{margin-top:0}dl{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:0}dt,dd{margin:0;padding:8px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere}dd{text-align:right;font-weight:600}button{background:#2d492d;color:white;padding:12px 18px;border:0;border-radius:8px;font:inherit;cursor:pointer}button:disabled{opacity:.65}small{color:#45483f}
-</style><main><header><a href="/">OpenSverige Wrapped</a></header><h1>Mina data</h1>
+table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:right}th:first-child{text-align:left}</style><main><header><a href="/">OpenSverige Wrapped</a></header><h1>Mina data</h1>
 <section><h2>Din Discord-profil</h2><dl>{% for label,value in rows.items() %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></section>
-<section><h2>Din aktivitet 2026</h2><p>Kvarvarande inlägg i #general och #bygg-skiten, räknade i svensk tid. Trådar och röstsamtal ingår inte.</p><button id="load">Hämta min aktivitet</button><p role="status" id="status"></p><dl id="metrics"></dl></section></main>
+<section><h2>Din aktivitet 2026</h2><p>Din aktivitet i {{ channels|length }} läsbara kanalchattar. Dagar räknas i svensk tid. Trådar, foruminlägg och tal i röstrum ingår inte.</p><button id="load">Hämta min aktivitet</button><p role="status" id="status"></p><dl id="metrics"></dl></section>
+<section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Status</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td></tr>{% endfor %}</tbody></table></div></section></main>
 <script>
 const channels = {{ channels|tojson }};
 const csrf = {{ csrf|tojson }};
@@ -15,11 +16,16 @@ const metrics = document.querySelector('#metrics');
 button.onclick = async () => {
   button.disabled = true;
   metrics.replaceChildren();
+  for(const row of document.querySelectorAll("tbody tr")){for(const cell of Array.from(row.cells).slice(1,5))cell.textContent="—";row.cells[5].textContent="Väntar";}
   const days = new Map(), months = new Map(), totals = {};
   let replies = 0, reactions = 0, pages = 0;
   try {
     for (const [channel, name] of Object.entries(channels)) {
-      totals[name] = 0;
+      totals[channel] = 0;
+      const cells=document.getElementById('ch-'+channel).cells;
+      const active=new Set();
+      let channelReplies=0, channelReactions=0;
+      cells[5].textContent='Läser';
       let before = '';
       do {
         statusLine.textContent = 'Läser #' + name + ' · ' + pages + ' sidor hämtade';
@@ -35,13 +41,20 @@ button.onclick = async () => {
           days.set(date,(days.get(date)||0)+n);
           const month=date.slice(0,7);
           months.set(month,(months.get(month)||0)+n);
-          totals[name]+=n;
+          totals[channel]+=n; active.add(date);
         }
         replies+=data.replies;
         reactions+=data.reactions;
+        channelReplies+=data.replies;
+        channelReactions+=data.reactions;
+        cells[1].textContent=totals[channel];
+        cells[2].textContent=active.size;
+        cells[3].textContent=channelReplies;
+        cells[4].textContent=channelReactions;
         pages++;
         before=data.next;
       } while (before !== null);
+      cells[5].textContent="Klar";
     }
     const dates=[...days.keys()].sort();
     const peak=Math.max(0,...months.values());
@@ -52,7 +65,7 @@ button.onclick = async () => {
       previous=day;
       longest=Math.max(longest,streak);
     }
-    const rows=[['Egna inlägg',Object.values(totals).reduce((a,b)=>a+b,0)],['Aktiva dagar',dates.length],['Längsta svit i dagar',longest],['Första aktiva dag',dates[0]],['Senaste aktiva dag',dates.at(-1)],['Flest inlägg under en månad',[...months].filter(([,n])=>n===peak).map(([m])=>m+' ('+peak+')').join(', ')],['Egna direkta svar',replies],['Kvarvarande reaktioner på dina inlägg',reactions],...Object.entries(totals).map(([k,v])=>['Inlägg i #'+k,v])];
+    const rows=[['Egna inlägg',Object.values(totals).reduce((a,b)=>a+b,0)],['Aktiva dagar',dates.length],['Längsta svit i dagar',longest],['Första aktiva dag',dates[0]],['Senaste aktiva dag',dates.at(-1)],['Flest inlägg under en månad',[...months].filter(([,n])=>n===peak).map(([m])=>m+' ('+peak+')').join(', ')],['Egna direkta svar',replies],['Kvarvarande reaktioner på dina inlägg',reactions]];
     for(const [label,value] of rows){
       const dt=document.createElement('dt'),dd=document.createElement('dd');
       dt.textContent=label;dd.textContent=value??'—';metrics.append(dt,dd);
