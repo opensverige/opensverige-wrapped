@@ -272,7 +272,7 @@ def data():
         "Tilldelade roller": len(member.get("roles", [])),
         "Boostar sedan": local_date(member.get("premium_since")),
     }
-    return render_template("data.html", story=request.path == "/year", rows=rows, channels=readable_channels(member), csrf=form_token())
+    return render_template("data.html", rows=rows, channels=readable_channels(member), csrf=form_token())
 
 
 @app.post("/data/messages")

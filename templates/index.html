@@ -30,6 +30,6 @@ footer { margin-top: 24px; }
 {% if demo %}<p>Demo med påhittade siffror.</p>{% include "share.html" %}{% endif %}
 {% for number,label in result %}<section><strong>{{ number }}</strong><div>{{ label }}</div></section>{% else %}<p>Vi hittade inga egna inlägg i den läsbara historiken för #general och #bygg-skiten under 2026.</p>{% endfor %}
 {% if link %}<a class="cta" href="{{ link }}">Öppna ditt inlägg</a>{% endif %}<footer><a href="/">Till startsidan</a></footer>
-{% else %}<section class="hero"><h1>{% if member %}Hej, {{ member }}!{% else %}Ditt år på OpenSverige.{% endif %}</h1><p>Dina dagar, dina kanaler och samtalet som fick folk att svara.</p>
-{% if member %}<form method="post" action="/year"><input type="hidden" name="csrf" value="{{ csrf }}"><button formaction="/data">Visa mina data</button> <button>Visa mitt år</button></form>
-{% else %}<a class="cta" href="/login">Logga in med Discord</a>{% endif %}</section><a href="/demo">Se ett exempelår</a>{% endif %}</main></html>
+{% else %}<section class="hero"><h1>{% if member %}Hej, {{ member }}!{% else %}Ditt år på OpenSverige.{% endif %}</h1><p>Se dina uppgifter från Discord, din aktivitet per kanal och din uppmätta rösttid.</p>
+{% if member %}<form method="post" action="/data"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Visa mina data</button></form>
+{% else %}<a class="cta" href="/login">Logga in med Discord</a>{% endif %}</section>{% endif %}</main></html>
