@@ -6,7 +6,7 @@
 table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:right}th:first-child{text-align:left}</style><main><header><a href="/">OpenSverige Wrapped</a></header><h1>Mina data</h1>
 <section><h2>Din Discord-profil</h2><dl>{% for label,value in rows.items() %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></section>
 <section><h2>Din aktivitet 2026</h2><p>Din aktivitet i {{ channels|length }} läsbara kanalchattar. Dagar räknas i svensk tid. Trådar, foruminlägg och tal i röstrum ingår inte.</p><button id="load">Hämta min aktivitet</button><p role="status" id="status"></p><dl id="metrics"></dl></section>
-<section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Status</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td></tr>{% endfor %}</tbody></table></div></section><section><h2>Rösttid i Statbot</h2><p>OpenSveriges röststatistik har en egen tidsperiod. Personliga röstminuter är ännu inte anslutna till Wrapped.</p><a href="https://statbot.net/dashboard/1466847548864987289/voice">Öppna serverns röststatistik</a></section></main>
+<section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Status</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td></tr>{% endfor %}</tbody></table></div></section><section><h2>Min rösttid i OpenSverige 2026</h2><button id="voice">Hämta min rösttid</button><p id="voice-status" role="status"></p><dl id="voice-rows"></dl></section><section><h2>Rösttid i Statbot</h2><p>OpenSveriges röststatistik har en egen tidsperiod. Personliga röstminuter är ännu inte anslutna till Wrapped.</p><a href="https://statbot.net/dashboard/1466847548864987289/voice">Öppna serverns röststatistik</a></section></main>
 <script>
 const channels = {{ channels|tojson }};
 const csrf = {{ csrf|tojson }};
@@ -121,5 +121,33 @@ button.onclick = async () => {
     statusLine.textContent = failed ? finished + ' kanaler klara, ' + failed + ' ofullständiga. Summorna är delresultat.' : 'Hämtningen är klar.';
   } catch(error){statusLine.textContent=error.message;}
   finally {button.disabled=false;}
+};
+document.querySelector('#voice').onclick = async function () {
+  const status = document.querySelector('#voice-status');
+  const rows = document.querySelector('#voice-rows');
+  rows.replaceChildren();
+  this.disabled = true;
+  status.textContent = 'Hämtar rösttid …';
+  try {
+    const response = await fetch('/data/voice', {method:'POST',body:new URLSearchParams({csrf})});
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    if (data.status === 'unconfigured') {
+      status.textContent = 'Insamlingen förbereds.';
+      return;
+    }
+    status.textContent = data.channels.length ? 'Observerad tid per kanal. Besök räknas vid en registrerad anslutning eller ett kanalbyte.' : 'Ingen uppmätt rösttid att visa ännu.';
+    for (const channel of data.channels) {
+      const label = document.createElement('dt'), value = document.createElement('dd');
+      label.textContent = channel.name;
+      value.textContent = Math.floor(channel.voice_seconds / 60) + ' min i voice · ' +
+        Math.floor(channel.stream_seconds / 60) + ' min skärmdelning · ' + channel.visits + ' besök';
+      rows.append(label, value);
+    }
+  } catch {
+    status.textContent = 'Kunde inte läsa röststatistiken. Försök igen.';
+  } finally {
+    this.disabled = false;
+  }
 };
 </script></html>

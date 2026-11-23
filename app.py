@@ -307,3 +307,21 @@ def data_messages():
         reactions += sum(item["count"] for item in msg.get("reactions", []))
     return {"days": days, "replies": replies, "reactions": reactions,
             "next": batch[-1]["id"] if len(batch) == 100 and not cutoff else None}
+
+@app.post("/data/voice")
+def voice_data():
+    member = authenticated_member()
+    if not isinstance(member, dict):
+        return {"error": "Logga in igen."}, 401
+    url = SUPABASE.removesuffix("/auth/v1") + "/rest/v1/rpc/osw_my_voice"
+    response = requests.post(url, json={"p_year": 2026}, headers={
+        "apikey": PUBLIC_KEY, "Authorization": "Bearer " + request.cookies["osw_access"]
+    }, timeout=12)
+    if response.status_code == 404:
+        return {"status": "unconfigured"}
+    response.raise_for_status()
+    channels = readable_channels(member)
+    return {"status": "ok", "channels": [
+        {**row, "name": channels[row["channel_id"]]} for row in response.json()
+        if row["channel_id"] in channels
+    ]}
