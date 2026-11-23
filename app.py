@@ -1,19 +1,40 @@
 import os
 import secrets
-import time
+import hashlib
+import base64
 from collections import Counter, defaultdict
 from datetime import datetime
 from urllib.parse import urlencode
 
 import requests
-from flask import Flask, abort, redirect, render_template, request, session
+from flask import Flask, abort, redirect, render_template, request
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SESSION_SECRET") or secrets.token_hex(32)
-CALLBACK = os.getenv("DISCORD_REDIRECT_URI", "http://127.0.0.1:5080/callback")
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
-                  SESSION_COOKIE_SECURE=CALLBACK.startswith("https://"))
-CLIENT = "1574347988728414309"
+SUPABASE = "https://jocwffhmrxgwjwatavoe.supabase.co/auth/v1"
+PUBLIC_KEY = "sb_publishable_1QKfVj53e5SW2nKAnItt9Q_YPerc0I9"
+CALLBACK = os.getenv("OSW_CALLBACK_URL", "https://opensverige-wrapped.vercel.app/callback")
+COOKIE = dict(httponly=True, secure=CALLBACK.startswith("https://"), samesite="Lax", path="/")
+
+
+def discord_identity(user):
+    for identity in user.get("identities", []):
+        if identity.get("provider") == "discord":
+            return identity["identity_data"]["sub"]
+    abort(403, "Logga in med Discord för att öppna ditt år.")
+
+
+def current_user():
+    token = request.cookies.get("osw_access")
+    if not token:
+        return None
+    response = requests.get(SUPABASE + "/user", headers={"apikey": PUBLIC_KEY,
+                            "Authorization": "Bearer " + token}, timeout=15)
+    if response.status_code in (401, 403):
+        return None
+    response.raise_for_status()
+    return response.json()
+
+
 GUILD = "1466847548864987289"
 CHANNELS = {"1466847549330559160": "general", "1479938876348039310": "bygg-skiten"}
 API = "https://discord.com/api/v10"
@@ -36,41 +57,47 @@ def private(response):
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    user = current_user()
+    return render_template("index.html", member=user and user["user_metadata"].get("full_name", "Discord-medlem"))
 
 
 @app.route("/login")
 def login():
-    if not all(os.getenv(k) for k in ("DISCORD_CLIENT_SECRET", "DISCORD_BOT_TOKEN", "SESSION_SECRET")):
-        abort(503, "Discord-inloggningen väntar på serverkonfiguration. Prova demon under tiden.")
-    session.clear()
-    session["state"] = secrets.token_urlsafe(32)
-    return redirect("https://discord.com/oauth2/authorize?" + urlencode(dict(
-        client_id=CLIENT, redirect_uri=CALLBACK, response_type="code",
-        scope="identify guilds.members.read", state=session["state"])))
+    verifier = secrets.token_urlsafe(48)
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+    response = redirect(SUPABASE + "/authorize?" + urlencode(dict(
+        provider="discord", redirect_to=CALLBACK, scopes="guilds.members.read",
+        code_challenge=challenge, code_challenge_method="s256")))
+    response.set_cookie("osw_verifier", verifier, max_age=600, **COOKIE)
+    return response
 
 
 @app.route("/callback")
 def callback():
-    state = session.pop("state", None)
-    if not state or not secrets.compare_digest(state, request.args.get("state", "")):
-        abort(400, "Starta inloggningen igen.")
-    if not request.args.get("code"):
-        return redirect("/")
-    response = requests.post(API + "/oauth2/token", data=dict(grant_type="authorization_code",
-        code=request.args["code"], redirect_uri=CALLBACK), auth=(CLIENT, os.environ["DISCORD_CLIENT_SECRET"]), timeout=20)
-    response.raise_for_status()
-    bearer = "Bearer " + response.json()["access_token"]
+    verifier = request.cookies.get("osw_verifier")
+    code = request.args.get("code")
+    if not verifier or not code:
+        abort(400, "Inloggningen avbröts eller har gått ut. Starta om från startsidan.")
+    exchange = requests.post(SUPABASE + "/token", params={"grant_type": "pkce"},
+                             headers={"apikey": PUBLIC_KEY},
+                             json={"auth_code": code, "code_verifier": verifier}, timeout=15)
+    if exchange.status_code in (400, 401, 403):
+        abort(400, "Inloggningslänken har gått ut. Logga in igen.")
+    exchange.raise_for_status()
+    tokens = exchange.json()
+    uid = discord_identity(tokens["user"])
     try:
-        api(f"/users/@me/guilds/{GUILD}/member", bearer)
+        member = api(f"/users/@me/guilds/{GUILD}/member", "Bearer " + tokens["provider_token"])
     except requests.HTTPError as exc:
         if exc.response.status_code in (403, 404):
             abort(403, "Återblicken är till för medlemmar i OpenSverige.")
         raise
-    user = api("/users/@me", bearer)
-    session.update(uid=user["id"], name=user.get("global_name") or user["username"],
-                   csrf=secrets.token_urlsafe(32), until=time.time()+1800)
-    return redirect("/")
+    if member["user"]["id"] != uid:
+        abort(403)
+    response = redirect("/")
+    response.delete_cookie("osw_verifier", **COOKIE)
+    response.set_cookie("osw_access", tokens["access_token"], max_age=min(1800, tokens["expires_in"]), **COOKIE)
+    return response
 
 
 def cards(uid):
@@ -108,12 +135,21 @@ def cards(uid):
 
 @app.post("/year")
 def year():
-    if session.get("until",0)<time.time():
-        session.clear()
-        return redirect("/login")
-    if not secrets.compare_digest(session["csrf"],request.form.get("csrf","")):
+    if request.headers.get("Origin") != CALLBACK.rsplit("/", 1)[0]:
         abort(403)
-    result, link = cards(session["uid"])
+    user = current_user()
+    if not user:
+        return redirect("/login")
+    uid = discord_identity(user)
+    if not os.getenv("DISCORD_BOT_TOKEN"):
+        abort(503, "Återblicken väntar på botens anslutning till OpenSverige.")
+    try:
+        api(f"/guilds/{GUILD}/members/{uid}", "Bot " + os.environ["DISCORD_BOT_TOKEN"])
+    except requests.HTTPError as exc:
+        if exc.response.status_code == 404:
+            abort(403, "Återblicken är till för medlemmar i OpenSverige.")
+        raise
+    result, link = cards(uid)
     return render_template("index.html", result=result, link=link)
 
 
