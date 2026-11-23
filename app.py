@@ -5,6 +5,7 @@ import hashlib
 import base64
 from collections import Counter, defaultdict
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import urlencode
 
 import requests
@@ -146,8 +147,7 @@ def cards(uid):
             f"https://discord.com/channels/{GUILD}/{own[best]}/{best}" if replies[best] else None)
 
 
-@app.post("/year")
-def year():
+def authenticated_member():
     if not request.cookies.get("osw_access") or not secrets.compare_digest(form_token(), request.form.get("csrf", "")):
         abort(403)
     user = current_user()
@@ -157,11 +157,20 @@ def year():
     if not os.getenv("DISCORD_BOT_TOKEN"):
         abort(503, "Återblicken väntar på botens anslutning till OpenSverige.")
     try:
-        api(f"/guilds/{GUILD}/members/{uid}", "Bot " + os.environ["DISCORD_BOT_TOKEN"])
+        member = api(f"/guilds/{GUILD}/members/{uid}", "Bot " + os.environ["DISCORD_BOT_TOKEN"])
     except requests.HTTPError as exc:
         if exc.response.status_code == 404:
             abort(403, "Återblicken är till för medlemmar i OpenSverige.")
         raise
+    return member
+
+
+@app.post("/year")
+def year():
+    member = authenticated_member()
+    if not isinstance(member, dict):
+        return member
+    uid = member["user"]["id"]
     result, link = cards(uid)
     return render_template("index.html", result=result, link=link)
 
@@ -180,3 +189,57 @@ from werkzeug.exceptions import HTTPException
 @app.errorhandler(HTTPException)
 def issue(error):
     return render_template("index.html", problem=error.description), error.code
+
+@app.post("/data")
+def data():
+    member = authenticated_member()
+    if not isinstance(member, dict):
+        return member
+    profile = member["user"]
+    def local_date(value):
+        if value:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Stockholm")).date()
+        return "Saknas"
+    rows = {
+        "Användarnamn": profile["username"],
+        "Discord-ID": profile["id"],
+        "Visningsnamn": profile.get("global_name") or profile["username"],
+        "Servernamn på medlemmen": member.get("nick") or "Inget smeknamn",
+        "Gick med i OpenSverige": local_date(member.get("joined_at")),
+        "Tilldelade roller": len(member.get("roles", [])),
+        "Boostar sedan": local_date(member.get("premium_since")),
+    }
+    return render_template("data.html", rows=rows, channels=CHANNELS, csrf=form_token())
+
+
+@app.post("/data/messages")
+def data_messages():
+    member = authenticated_member()
+    if not isinstance(member, dict):
+        return {"error": "Logga in igen."}, 401
+    channel = request.form.get("channel")
+    cursor = request.form.get("before") or str((1798758000000 - 1420070400000) << 22)
+    if channel not in CHANNELS or not cursor.isascii() or not cursor.isdigit() or len(cursor) > 20:
+        abort(400)
+    response = requests.get(f"{API}/channels/{channel}/messages",
+                            headers={"Authorization": "Bot " + os.environ["DISCORD_BOT_TOKEN"]},
+                            params={"limit": 100, "before": cursor}, timeout=20)
+    if response.status_code == 429:
+        return {"retry": max(1, float(response.json()["retry_after"]))}, 429
+    response.raise_for_status()
+    batch = response.json()
+    uid = member["user"]["id"]
+    days = Counter()
+    replies = reactions = 0
+    cutoff = False
+    for msg in batch:
+        day = datetime.fromisoformat(msg["timestamp"].replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Stockholm")).date()
+        if day.year < 2026:
+            cutoff = True
+        if day.year != 2026 or msg["author"]["id"] != uid or msg["type"] not in (0, 19):
+            continue
+        days[day.isoformat()] += 1
+        replies += int(msg["type"] == 19)
+        reactions += sum(item["count"] for item in msg.get("reactions", []))
+    return {"days": days, "replies": replies, "reactions": reactions,
+            "next": batch[-1]["id"] if len(batch) == 100 and not cutoff else None}

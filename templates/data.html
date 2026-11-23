@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mina data · OpenSverige Wrapped</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#fcfaf6;color:#191914;font:1rem/1.5 "Bricolage Grotesque","Segoe UI",sans-serif}main{max-width:840px;margin:auto;padding:32px 20px}header{border-bottom:1px solid #dedbd4;padding-bottom:16px}a{color:#884b21}section{background:white;border:1px solid #dedbd4;border-radius:14px;padding:clamp(16px,4vw,32px);margin:18px 0}h1{font-size:clamp(2.4rem,7vw,4.4rem);letter-spacing:-.06em;margin:.4em 0}h2{margin-top:0}dl{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:0}dt,dd{margin:0;padding:8px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere}dd{text-align:right;font-weight:600}button{background:#2d492d;color:white;padding:12px 18px;border:0;border-radius:8px;font:inherit;cursor:pointer}button:disabled{opacity:.65}small{color:#45483f}
+</style><main><header><a href="/">OpenSverige Wrapped</a></header><h1>Mina data</h1>
+<section><h2>Din Discord-profil</h2><dl>{% for label,value in rows.items() %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></section>
+<section><h2>Din aktivitet 2026</h2><p>Kvarvarande inlägg i #general och #bygg-skiten, räknade i svensk tid. Trådar och röstsamtal ingår inte.</p><button id="load">Hämta min aktivitet</button><p role="status" id="status"></p><dl id="metrics"></dl></section></main>
+<script>
+const channels = {{ channels|tojson }};
+const csrf = {{ csrf|tojson }};
+const button = document.querySelector('#load');
+const statusLine = document.querySelector('#status');
+const metrics = document.querySelector('#metrics');
+button.onclick = async () => {
+  button.disabled = true;
+  metrics.replaceChildren();
+  const days = new Map(), months = new Map(), totals = {};
+  let replies = 0, reactions = 0, pages = 0;
+  try {
+    for (const [channel, name] of Object.entries(channels)) {
+      totals[name] = 0;
+      let before = '';
+      do {
+        statusLine.textContent = 'Läser #' + name + ' · ' + pages + ' sidor hämtade';
+        const response = await fetch('/data/messages', {method:'POST',body:new URLSearchParams({csrf,channel,before})});
+        if (response.status === 429) {
+          const {retry} = await response.json();
+          await new Promise(resolve => setTimeout(resolve, retry * 1000 + 250));
+          continue;
+        }
+        if (!response.ok) throw Error('Hämtningen avbröts. Kontrollera inloggningen och försök igen.');
+        const data = await response.json();
+        for (const [date,n] of Object.entries(data.days)) {
+          days.set(date,(days.get(date)||0)+n);
+          const month=date.slice(0,7);
+          months.set(month,(months.get(month)||0)+n);
+          totals[name]+=n;
+        }
+        replies+=data.replies;
+        reactions+=data.reactions;
+        pages++;
+        before=data.next;
+      } while (before !== null);
+    }
+    const dates=[...days.keys()].sort();
+    const peak=Math.max(0,...months.values());
+    let streak=0,longest=0,previous=0;
+    for(const date of dates){
+      const day=Date.parse(date)/86400000;
+      streak=day===previous+1?streak+1:1;
+      previous=day;
+      longest=Math.max(longest,streak);
+    }
+    const rows=[['Egna inlägg',Object.values(totals).reduce((a,b)=>a+b,0)],['Aktiva dagar',dates.length],['Längsta svit i dagar',longest],['Första aktiva dag',dates[0]],['Senaste aktiva dag',dates.at(-1)],['Flest inlägg under en månad',[...months].filter(([,n])=>n===peak).map(([m])=>m+' ('+peak+')').join(', ')],['Egna direkta svar',replies],['Kvarvarande reaktioner på dina inlägg',reactions],...Object.entries(totals).map(([k,v])=>['Inlägg i #'+k,v])];
+    for(const [label,value] of rows){
+      const dt=document.createElement('dt'),dd=document.createElement('dd');
+      dt.textContent=label;dd.textContent=value??'—';metrics.append(dt,dd);
+    }
+    statusLine.textContent='Hämtningen är klar.';
+  } catch(error){statusLine.textContent=error.message;}
+  finally {button.disabled=false;}
+};
+</script></html>
