@@ -21,7 +21,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <dt>Varav skärmdelning</dt><dd id="stream-total"></dd>
 <dt>Registrerade kanalbesök</dt><dd id="visit-total"></dd></dl>
 </div><button id="voice">Uppdatera rösttid</button> <button id="load">Hämta kanalhistoriken igen</button><p role="status" id="status"></p><p id="session-help" hidden><a href="/data">Öppna datasidan igen och fortsätt</a></p><dl id="metrics"></dl><details><summary>Egna inlägg per aktiv dag</summary><dl id="daily"></dl></details></section>
-<section><h2>Dina återkommande uttryck</h2><p>Fraser på två till fem ord som du skrev i minst två olika inlägg. Antalet visar hur många av dina inlägg frasen förekom i.</p><p id="phrase-status" role="status"></p><dl id="phrase-list"></dl></section>
+<section><h2>Dina signaturuttryck</h2><p>Hitta repliker du återkommer till. När du trycker skickas återkommande fraser ur dina egna inlägg till OpenAI för urval.</p><button id="pick-quotes" hidden>Hitta mina signaturuttryck</button><p id="phrase-status" role="status"></p><dl id="phrase-list"></dl></section>
 <section><h2>Dina inlägg att återbesöka</h2><p id="post-status">Letar i kanalhistoriken …</p><dl id="post-list"></dl></section><section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Chattstatus</th><th>Rösttid</th><th>Skärmdelning</th><th>Röstbesök</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td>{% if id in voice_ids %}<td data-voice="time">…</td><td data-voice="stream">…</td><td data-voice="visits">…</td>{% else %}<td>—</td><td>—</td><td>—</td>{% endif %}</tr>{% endfor %}</tbody></table></div></section></main>
 <aside id="scan-toast" aria-hidden="true" hidden><strong></strong><span></span></aside>
 <script>
@@ -80,27 +80,52 @@ button.onclick = async () => {
   const phraseStatus = document.querySelector('#phrase-status');
   phraseList.replaceChildren();
   phraseStatus.textContent = 'Läser dina inlägg …';
+  const pickQuotes = document.querySelector('#pick-quotes');
+  pickQuotes.hidden = true;
   function renderPhrases(complete) {
-    const ranked = [...discovered].filter(([,n]) => n >= 2)
-      .sort(([a,n],[b,m]) => m-n || b.split(' ').length-a.split(' ').length || a.localeCompare(b,'sv'));
-    const selected = [];
-    for (const [phrase,count] of ranked) {
-      // Prefer the full expression when a shorter part has exactly the same support.
-      if (selected.some(([longer,n]) => n === count && (' '+longer+' ').includes(' '+phrase+' '))) continue;
-      selected.push([phrase,count]);
-      if (selected.length === 15) break;
-    }
-    phraseList.replaceChildren();
-    for (const [phrase,count] of selected) {
-      const name = document.createElement('dt'), value = document.createElement('dd');
-      name.textContent = phrase;
-      value.textContent = count+' inlägg';
-      phraseList.append(name,value);
-    }
-    phraseStatus.textContent = !complete ? 'Delresultat från lästa kanaler.' :
-      selected.length ? 'De vanligaste uttrycken i årets lästa kanalhistorik.' :
-      'Inga återkommande uttryck hittades i den tillgängliga texten.';
+    pickQuotes.hidden = !complete;
+    phraseStatus.textContent = complete ? '' : 'Urvalet blir tillgängligt när alla kanaler är lästa.';
   }
+  pickQuotes.onclick = async () => {
+    pickQuotes.disabled = true;
+    button.disabled = true;
+    phraseList.replaceChildren();
+    const candidates = [...discovered].filter(([phrase,n]) => n >= 2 && phrase.length <= 150)
+      .map(([phrase]) => phrase);
+    async function choose(group) {
+      const response = await fetch('/data/signatures', {method:'POST',
+        body:new URLSearchParams({csrf,items:JSON.stringify(group)})});
+      checkSession(response);
+      if (!response.ok) throw new Error('Urvalet kunde inte slutföras. Försök igen.');
+      const {ids} = await response.json();
+      return ids.map(id => group[id]);
+    }
+    try {
+      const shortlist = [];
+      for (let i=0; i<candidates.length; i+=200) {
+        phraseStatus.textContent = 'Letar efter personliga uttryck · grupp '+(1+i/200)+' av '+Math.ceil(candidates.length/200);
+        shortlist.push(...await choose(candidates.slice(i,i+200)));
+      }
+      let best = shortlist;
+      while (best.length > 3) {
+        const next = [];
+        for (let i=0; i<best.length; i+=200) next.push(...await choose(best.slice(i,i+200)));
+        best = next;
+      }
+      for (const phrase of best) {
+        const name = document.createElement('dt'), count = document.createElement('dd');
+        name.textContent = '”'+phrase+'”';
+        count.textContent = discovered.get(phrase)+' inlägg';
+        phraseList.append(name,count);
+      }
+      phraseStatus.textContent = best.length ? 'Föreslagna citat från dina egna inlägg.' : 'Inga tydliga signaturuttryck hittades.';
+    } catch(error) {
+      phraseStatus.textContent = error.message;
+    } finally {
+      pickQuotes.disabled = false;
+      button.disabled = false;
+    }
+  };
   const writtenEmojis = new Map();
   const labels = {reaction:'Flest reaktioner',laugh:'Flest 😂 och 🤣',sticker:'Senaste inlägget med klistermärke',pin:'Senaste inlägget som är fäst'};
   const list = document.querySelector('#post-list');
