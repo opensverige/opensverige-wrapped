@@ -150,7 +150,11 @@ def cards(uid):
 
 
 def authenticated_member():
-    if not request.cookies.get("osw_access") or not secrets.compare_digest(form_token(), request.form.get("csrf", "")):
+    if not request.cookies.get("osw_access"):
+        return redirect("/login")
+    if request.method == "POST" and not secrets.compare_digest(form_token(), request.form.get("csrf", "")):
+        if request.path in ("/data/messages", "/data/voice"):
+            return redirect("/login")
         abort(403)
     user = current_user()
     if not user:
@@ -255,7 +259,7 @@ def readable_channels(member):
 
 
 @app.post("/year")
-@app.post("/data")
+@app.route("/data", methods=["GET", "POST"])
 def data():
     member = authenticated_member()
     if not isinstance(member, dict):

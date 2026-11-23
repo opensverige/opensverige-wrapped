@@ -14,7 +14,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <dl><dt>Tid i röstkanaler</dt><dd id="voice-total"></dd>
 <dt>Varav skärmdelning</dt><dd id="stream-total"></dd>
 <dt>Registrerade kanalbesök</dt><dd id="visit-total"></dd></dl>
-</div><button id="voice">Uppdatera rösttid</button> <button id="load">Hämta kanalhistoriken igen</button><p role="status" id="status"></p><dl id="metrics"></dl><details><summary>Egna inlägg per aktiv dag</summary><dl id="daily"></dl></details></section>
+</div><button id="voice">Uppdatera rösttid</button> <button id="load">Hämta kanalhistoriken igen</button><p role="status" id="status"></p><p id="session-help" hidden><a href="/data">Öppna datasidan igen och fortsätt</a></p><dl id="metrics"></dl><details><summary>Egna inlägg per aktiv dag</summary><dl id="daily"></dl></details></section>
 <section><h2>Dina inlägg att återbesöka</h2><p id="post-status">Letar i kanalhistoriken …</p><dl id="post-list"></dl></section><section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Chattstatus</th><th>Rösttid</th><th>Skärmdelning</th><th>Röstbesök</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td>{% if id in voice_ids %}<td data-voice="time">…</td><td data-voice="stream">…</td><td data-voice="visits">…</td>{% else %}<td>—</td><td>—</td><td>—</td>{% endif %}</tr>{% endfor %}</tbody></table></div></section></main>
 <aside id="scan-toast" aria-hidden="true" hidden><strong></strong><span></span></aside>
 <script>
@@ -50,6 +50,13 @@ async function cachedPage(key, data) {
     tx.onabort = () => reject(tx.error);
   });
 }
+class SessionError extends Error {}
+function checkSession(response) {
+  if (response.status === 401) {
+    document.querySelector('#session-help').hidden = false;
+    throw new SessionError('Din inloggning behöver förnyas.');
+  }
+}
 let scanComplete = false;
 button.onclick = async () => {
   button.disabled = true;
@@ -68,6 +75,7 @@ button.onclick = async () => {
   postStatus.textContent = 'Letar i kanalhistoriken …';
   let replies = 0, reactions = 0, pages = 0;
   function renderMetrics() {
+    if (!pages) return;
     const dates=[...days.keys()].sort();
     const peak=Math.max(0,...months.values());
     let streak=0,longest=0,previous=0;
@@ -135,6 +143,7 @@ button.onclick = async () => {
           const response = await fetch('/data/messages', {
             method: 'POST', body: new URLSearchParams({csrf, channel, before})
           });
+          checkSession(response);
           if (response.status === 429) {
             const {retry} = await response.json();
             resumeAt = Math.max(resumeAt, Date.now() + 1000 * (Number(retry) || 2) + 250);
@@ -202,7 +211,12 @@ button.onclick = async () => {
           cells[5].textContent = 'Klar';
           finished++;
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof SessionError) {
+          cells[5].textContent = 'Pausad';
+          postStatus.textContent = error.message;
+          throw error;
+        }
         cells[5].textContent = 'Ofullständig';
         failed++;
       }
@@ -247,6 +261,7 @@ document.querySelector('#voice').onclick = async function () {
   status.textContent = 'Hämtar rösttid …';
   try {
     const response = await fetch('/data/voice', {method:'POST',body:new URLSearchParams({csrf})});
+    checkSession(response);
     if (!response.ok) throw new Error();
     const data = await response.json();
     if (data.status === 'unconfigured') {
@@ -273,8 +288,8 @@ document.querySelector('#voice').onclick = async function () {
       row.querySelector('[data-voice="stream"]').textContent = duration(channel?.stream_seconds ?? 0);
       row.querySelector('[data-voice="visits"]').textContent = channel?.visits ?? 0;
     }
-  } catch {
-    status.textContent = 'Kunde inte läsa röststatistiken. Försök igen.';
+  } catch (error) {
+    status.textContent = error instanceof SessionError ? error.message : 'Kunde inte läsa röststatistiken. Försök igen.';
   } finally {
     this.disabled = false;
   }
