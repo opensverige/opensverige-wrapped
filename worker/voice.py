@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from reaction_sync import collect
 from history_runner import sync_history
 import discord
 import psycopg
@@ -16,12 +17,28 @@ LOG = logging.getLogger("osw.voice")
 class VoiceCollector(discord.Client):
     def __init__(self, db):
         intents = discord.Intents.none()
-        intents.guilds = intents.voice_states = True
+        intents.guilds = intents.voice_states = intents.guild_reactions = True
         super().__init__(intents=intents)
         self.db = db
+        self.reaction_queue = asyncio.Queue()
+        self.reaction_pending = set()
         self.active = {}
         self.pending = {}
         self.tracking = False
+
+    def queue_reaction(self, channel, mid):
+        key = (channel, mid)
+        if key not in self.reaction_pending:
+            self.reaction_pending.add(key)
+            self.reaction_queue.put_nowait(key)
+
+    async def on_raw_reaction_add(self, event):
+        if event.guild_id == GUILD:
+            self.queue_reaction(event.channel_id, event.message_id)
+
+    on_raw_reaction_remove = on_raw_reaction_add
+    on_raw_reaction_clear = on_raw_reaction_add
+    on_raw_reaction_clear_emoji = on_raw_reaction_add
 
     def observe(self, uid, channel, streaming, now, *, snapshot=False):
         old = self.active.get(uid)
@@ -116,6 +133,14 @@ async def main():
                         except Exception:
                             LOG.exception("History sync interrupted; retrying")
                             await asyncio.sleep(10)
+                async def run_reactions():
+                    while True:
+                        try:
+                            await collect(client)
+                        except (discord.HTTPException, psycopg.Error, ValueError):
+                            LOG.exception("Reaction sync interrupted")
+                            await asyncio.sleep(5)
+                group.create_task(run_reactions())
                 group.create_task(run_sync())
                 group.create_task(client.persist())
                 group.create_task(client.start(os.environ["DISCORD_BOT_TOKEN"]))
