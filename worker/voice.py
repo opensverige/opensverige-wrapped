@@ -49,6 +49,7 @@ class VoiceCollector(discord.Client):
                 if not member.bot and member.voice:
                     self.observe(member.id, channel.id, bool(member.voice.self_stream), now, snapshot=True)
         self.tracking = True
+        LOG.info("Discord voice collection connected; guild state synchronized")
 
     async def on_ready(self):
         self.snapshot()
@@ -113,4 +114,5 @@ if __name__ == "__main__":
     import sys
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    logging.basicConfig(level=logging.INFO)
     asyncio.run(main())

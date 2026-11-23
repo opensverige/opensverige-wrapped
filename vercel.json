@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "daemons": {
+    "voice-collector": {
+      "root": "worker/",
+      "entrypoint": "Dockerfile",
+      "instances": { "dub1": 1 }
+    }
+  }
+}
