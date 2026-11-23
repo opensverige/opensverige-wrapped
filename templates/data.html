@@ -21,6 +21,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <a href="/data">Visa mina data</a>
 <script src="{{ url_for('static',filename='year-player.js') }}"></script>
 {% else %}<h1>Mina data i OpenSverige</h1>{% endif %}
+<section><h2>Mina genererade Wrapped</h2><p id="story-status" role="status"></p><button id="retry-story" hidden>Försök igen</button><div id="wrapped-runs"></div></section>
 <section><h2>Din Discord-profil</h2><dl>{% for label,value in rows.items() %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></section>
 <section><h2>Din aktivitet 2026</h2><p>Din aktivitet i {{ channels|length }} läsbara kanalchattar. Dagar räknas i svensk tid. Textstatistiken gäller kanalchattar utanför trådar och forum. Rösttid mäts från 23 november 2026 och inkluderar skärmdelning. Äldre Statbot-historik är ännu inte importerad.</p><p id="voice-status" role="status">Hämtar röststatistik …</p>
 <div id="voice-results" hidden>
@@ -349,8 +350,10 @@ button.onclick = async () => {
       const uses = Math.max(0, ...writtenEmojis.values());
       const names = Object.entries(totals).filter(([,n]) => n === highest).map(([id]) => '#' + channels[id]);
       const emoji = [...writtenEmojis].filter(([,n]) => n === uses).map(([key]) => key.split('·')[0]);
-      window.showYear({name: {{ rows['Visningsnamn']|tojson }}, channels:names.join(' / '),
-        messages:Object.values(totals).reduce((sum,n)=>sum+n,0), reactions, count:highest, days:days.size, emoji:emoji.join(' '), uses});
+      const stats = {name: {{ rows['Visningsnamn']|tojson }}, channels:names.join(' / '),
+        messages:Object.values(totals).reduce((sum,n)=>sum+n,0), reactions, count:highest, days:days.size, emoji:emoji.join(' '), uses};
+      window.showYear(stats);
+      generateStories(stats);
     }
     {% endif %}
     button.textContent = scanComplete ? 'Hämta kanalhistoriken igen' : 'Fortsätt läsa kanalhistoriken';
@@ -411,4 +414,4 @@ document.querySelector('#voice').onclick = async function () {
 };
 document.querySelector('#voice').click();
 button.click();
-</script></html>
+</script><script src="/static/stories.js"></script></html>

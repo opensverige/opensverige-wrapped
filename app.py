@@ -451,3 +451,6 @@ def voice_data():
         {**row, "name": channels[row["channel_id"]]} for row in response.json()
         if row["channel_id"] in channels
     ]}
+
+from stories import install as install_stories
+install_stories(app, authenticated_member, readable_channels)
