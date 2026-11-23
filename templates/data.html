@@ -28,7 +28,7 @@ button.onclick = async () => {
     let finished = 0, failed = 0, resumeAt = 0;
     async function readPage(state) {
       const {channel, before, cells} = state;
-      cells[5].textContent = 'Läser';
+      cells[5].textContent = 'LÃ¤ser';
       try {
         const response = await fetch('/data/messages', {
           method: 'POST', body: new URLSearchParams({csrf, channel, before})
@@ -67,12 +67,12 @@ button.onclick = async () => {
           finished++;
         }
       } catch {
-        cells[5].textContent = 'Ofullständig';
+        cells[5].textContent = 'OfullstÃ¤ndig';
         failed++;
       }
     }
     while (queue.length) {
-      statusLine.textContent = finished + ' av ' + channelCount + ' kanaler klara · ' + pages + ' sidor hämtade';
+      statusLine.textContent = finished + ' av ' + channelCount + ' kanaler klara Â· ' + pages + ' sidor hÃ¤mtade';
       if (resumeAt > Date.now()) {
         await new Promise(resolve => setTimeout(resolve, resumeAt - Date.now()));
       }
