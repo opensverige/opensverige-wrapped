@@ -6,7 +6,7 @@
 table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:right}th:first-child{text-align:left}</style><main><header><a href="/">OpenSverige Wrapped</a></header><h1>Mina data</h1>
 <section><h2>Din Discord-profil</h2><dl>{% for label,value in rows.items() %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></section>
 <section><h2>Din aktivitet 2026</h2><p>Din aktivitet i {{ channels|length }} läsbara kanalchattar. Dagar räknas i svensk tid. Trådar, foruminlägg och tal i röstrum ingår inte.</p><button id="load">Hämta min aktivitet</button><p role="status" id="status"></p><dl id="metrics"></dl></section>
-<section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Status</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td></tr>{% endfor %}</tbody></table></div></section></main>
+<section><h2>Statistik per kanal</h2><div style="overflow:auto"><table><thead><tr><th>Kanal</th><th>Inlägg</th><th>Dagar</th><th>Egna svar</th><th>Reaktioner</th><th>Status</th></tr></thead><tbody>{% for id,name in channels.items() %}<tr id="ch-{{ id }}"><th scope="row">#{{ name }}</th><td>—</td><td>—</td><td>—</td><td>—</td><td>Väntar</td></tr>{% endfor %}</tbody></table></div></section><section><h2>Rösttid i Statbot</h2><p>OpenSveriges röststatistik har en egen tidsperiod. Personliga röstminuter är ännu inte anslutna till Wrapped.</p><a href="https://statbot.net/dashboard/1466847548864987289/voice">Öppna serverns röststatistik</a></section></main>
 <script>
 const channels = {{ channels|tojson }};
 const csrf = {{ csrf|tojson }};
@@ -19,6 +19,44 @@ button.onclick = async () => {
   for(const row of document.querySelectorAll("tbody tr")){for(const cell of Array.from(row.cells).slice(1,5))cell.textContent="—";row.cells[5].textContent="Väntar";}
   const days = new Map(), months = new Map(), totals = {};
   let replies = 0, reactions = 0, pages = 0;
+  function renderMetrics() {
+    const dates=[...days.keys()].sort();
+    const peak=Math.max(0,...months.values());
+    let streak=0,longest=0,previous=0;
+    for(const date of dates){
+      const day=Date.parse(date)/86400000;
+      streak=day===previous+1?streak+1:1;
+      previous=day;
+      longest=Math.max(longest,streak);
+    }
+    const count = Object.values(totals).reduce((sum, value) => sum + value, 0);
+    const weekdayCounts = new Map();
+    const weekday = new Intl.DateTimeFormat('sv-SE', {weekday:'long', timeZone:'UTC'});
+    for (const [date, value] of days) {
+      const label = weekday.format(new Date(date + 'T12:00:00Z'));
+      weekdayCounts.set(label, (weekdayCounts.get(label) || 0) + value);
+    }
+    function leaders(entries) {
+      const highest = Math.max(0, ...entries.map(([, value]) => value));
+      return entries.filter(([, value]) => value === highest)
+        .map(([label]) => label + ' (' + highest + ')').join(', ') || '—';
+    }
+    const rows=[['Egna inlägg',Object.values(totals).reduce((a,b)=>a+b,0)],['Aktiva dagar',dates.length],['Längsta svit i dagar',longest],['Första aktiva dag',dates[0]],['Senaste aktiva dag',dates.at(-1)],['Flest inlägg under en månad',[...months].filter(([,n])=>n===peak).map(([m])=>m+' ('+peak+')').join(', ')],['Egna direkta svar',replies],['Kvarvarande reaktioner på dina inlägg',reactions]];
+    rows.push(
+      ['Kanaler du skrev i', Object.keys(totals).length],
+      ['Månader du skrev i', months.size],
+      ['Flest inlägg på en dag', leaders([...days])],
+      ['Veckodag med flest inlägg', leaders([...weekdayCounts])],
+      ['Kanal med flest egna inlägg', leaders(Object.entries(totals).map(([id,n]) => ['#'+channels[id],n]))],
+      ['Inlägg per aktiv dag', days.size ? (count / days.size).toLocaleString('sv-SE',{maximumFractionDigits:1}) : '—'],
+      ['Andel egna inlägg som var direkta svar', count ? (replies / count).toLocaleString('sv-SE',{style:'percent'}) : '—']
+    );
+    metrics.replaceChildren();
+    for(const [label,value] of rows){
+      const dt=document.createElement('dt'),dd=document.createElement('dd');
+      dt.textContent=label;dd.textContent=value??'—';metrics.append(dt,dd);
+    }
+  }
   try {
     const queue = Object.keys(channels).map(channel => ({
       channel, before: '', days: new Set(), replies: 0, reactions: 0,
@@ -77,22 +115,10 @@ button.onclick = async () => {
         await new Promise(resolve => setTimeout(resolve, resumeAt - Date.now()));
       }
       await Promise.all(queue.splice(0, 3).map(readPage));
+      renderMetrics();
     }
-    const dates=[...days.keys()].sort();
-    const peak=Math.max(0,...months.values());
-    let streak=0,longest=0,previous=0;
-    for(const date of dates){
-      const day=Date.parse(date)/86400000;
-      streak=day===previous+1?streak+1:1;
-      previous=day;
-      longest=Math.max(longest,streak);
-    }
-    const rows=[['Egna inlägg',Object.values(totals).reduce((a,b)=>a+b,0)],['Aktiva dagar',dates.length],['Längsta svit i dagar',longest],['Första aktiva dag',dates[0]],['Senaste aktiva dag',dates.at(-1)],['Flest inlägg under en månad',[...months].filter(([,n])=>n===peak).map(([m])=>m+' ('+peak+')').join(', ')],['Egna direkta svar',replies],['Kvarvarande reaktioner på dina inlägg',reactions]];
-    for(const [label,value] of rows){
-      const dt=document.createElement('dt'),dd=document.createElement('dd');
-      dt.textContent=label;dd.textContent=value??'—';metrics.append(dt,dd);
-    }
-    statusLine.textContent='Hämtningen är klar.';
+    renderMetrics();
+    statusLine.textContent = failed ? finished + ' kanaler klara, ' + failed + ' ofullständiga. Summorna är delresultat.' : 'Hämtningen är klar.';
   } catch(error){statusLine.textContent=error.message;}
   finally {button.disabled=false;}
 };
