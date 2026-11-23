@@ -1,0 +1,17 @@
+{
+  "name": "opensverige-wrapped",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "esbuild year.jsx --bundle --minify --outfile=../static/year-player.js"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@remotion/player": "4.0.546",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.546"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

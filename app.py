@@ -258,6 +258,7 @@ def readable_channels(member):
             and can_read_history(bot, guild, c)}
 
 
+@app.get("/mitt-ar")
 @app.post("/year")
 @app.route("/data", methods=["GET", "POST"])
 def data():
@@ -291,7 +292,7 @@ def data():
         content_access = bool(flags & ((1 << 18) | (1 << 19)))
     except (requests.RequestException, KeyError, ValueError):
         pass
-    return render_template("data.html", content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
+    return render_template("data.html", year_view=request.path == "/mitt-ar", content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
 
 
 CUSTOM_EMOJI = re.compile(r"<a?:([A-Za-z0-9_]+):([0-9]+)>")

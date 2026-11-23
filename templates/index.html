@@ -31,5 +31,5 @@ footer { margin-top: 24px; }
 {% for number,label in result %}<section><strong>{{ number }}</strong><div>{{ label }}</div></section>{% else %}<p>Vi hittade inga egna inlägg i den läsbara historiken för #general och #bygg-skiten under 2026.</p>{% endfor %}
 {% if link %}<a class="cta" href="{{ link }}">Öppna ditt inlägg</a>{% endif %}<footer><a href="/">Till startsidan</a></footer>
 {% else %}<section class="hero"><h1>{% if member %}Hej, {{ member }}!{% else %}Ditt år på OpenSverige.{% endif %}</h1><p>Se dina uppgifter från Discord, din aktivitet per kanal och din uppmätta rösttid.</p>
-{% if member %}<form method="post" action="/data"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Visa mina data</button></form>
+{% if member %}<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap"><a class="cta" href="/mitt-ar">Generera mitt år</a><a href="/data">Visa mina data</a></div>
 {% else %}<a class="cta" href="/login">Logga in med Discord</a>{% endif %}</section>{% endif %}</main></html>

@@ -7,7 +7,13 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 #scan-toast{position:fixed;z-index:5;right:1rem;bottom:max(1rem,env(safe-area-inset-bottom));max-width:calc(100vw - 2rem);padding:.75rem 1rem;border-radius:12px;background:#2d492d;color:white;box-shadow:0 4px 18px #19191433;pointer-events:none}
 #scan-toast strong,#scan-toast span{display:block}
 #scan-toast span{font-size:.9rem}
-</style><main><header><a href="/">OpenSverige Wrapped</a></header><h1>Mina data i OpenSverige</h1>
+</style><main><header><a href="/">OpenSverige Wrapped</a></header>{% if year_view %}
+<h1>Mitt år i OpenSverige</h1>
+<section><div id="year-preview">Ditt kort skapas när kanalhistoriken är färdigläst.</div>
+<button id="year-download" hidden>Ladda ned kortet som PNG</button></section>
+<a href="/data">Visa mina data</a>
+<script src="{{ url_for('static',filename='year-player.js') }}"></script>
+{% else %}<h1>Mina data i OpenSverige</h1>{% endif %}
 <section><h2>Din Discord-profil</h2><dl>{% for label,value in rows.items() %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></section>
 <section><h2>Din aktivitet 2026</h2><p>Din aktivitet i {{ channels|length }} läsbara kanalchattar. Dagar räknas i svensk tid. Textstatistiken gäller kanalchattar utanför trådar och forum. Rösttid mäts från 23 november 2026 och inkluderar skärmdelning. Äldre Statbot-historik är ännu inte importerad.</p><p id="voice-status" role="status">Hämtar röststatistik …</p>
 <div id="voice-results" hidden>
@@ -239,6 +245,16 @@ button.onclick = async () => {
       daily.append(label, value);
     }
     scanComplete = failed === 0;
+    {% if year_view %}
+    if (scanComplete) {
+      const highest = Math.max(0, ...Object.values(totals));
+      const uses = Math.max(0, ...writtenEmojis.values());
+      const names = Object.entries(totals).filter(([,n]) => n === highest).map(([id]) => '#' + channels[id]);
+      const emoji = [...writtenEmojis].filter(([,n]) => n === uses).map(([key]) => key.split('·')[0]);
+      window.showYear({name: {{ rows['Visningsnamn']|tojson }}, channels:names.join(' / '),
+        count:highest, days:days.size, emoji:emoji.join(' '), uses});
+    }
+    {% endif %}
     button.textContent = scanComplete ? 'Hämta kanalhistoriken igen' : 'Fortsätt läsa kanalhistoriken';
     postStatus.textContent = failed ? 'Delresultat från lästa kanaler.' : highlights.size ? 'Från årets lästa kanalhistorik.' : 'Inga matchande inlägg hittades.';
     showScanStatus(failed ? 'Inläsningen är ofullständig' : 'Kanalhistoriken är färdigläst',
