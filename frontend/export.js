@@ -2,7 +2,7 @@ importScripts('/static/year-codec.js');
 import {loadImages,paint} from './paint';
 
 import {addMusic} from './music';
-import {fps,totalFrames,buildScenes,filmTrack} from './design';
+import {fps,totalFrames,buildScenes} from './design';
 
 self.onmessage = async ({data: stats}) => {
   let encoder;
@@ -24,7 +24,7 @@ self.onmessage = async ({data: stats}) => {
       if (frame % 12 === 0) self.postMessage({percent:Math.round(frame/frames*100)});
     }
     encoder.finalize();
-    const file = await addMusic(encoder.FS.readFile(encoder.outputFilename),frames/fps,filmTrack(stats));
+    const file = await addMusic(encoder.FS.readFile(encoder.outputFilename),frames/fps);
     self.postMessage({file});
   } catch {
     self.postMessage({error:true});

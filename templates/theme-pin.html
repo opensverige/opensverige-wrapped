@@ -1,8 +1,0 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Logga in med PIN · OpenSverige</title><link rel="stylesheet" href="/static/admin.css"><link rel="stylesheet" href="/static/site.css"></head>
-<body>{% include "site-header.html" %}
-<main class="shell" id="innehall"><h1>Film<span>teman.</span></h1><p>Logga in med PIN-kod för att testa teman och musik.</p>
-<form method="post" style="max-width:24rem"><label>PIN-kod<input type="password" name="pin" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" autocomplete="current-password" required></label>
-{% if error %}<p role="alert">{{ error }}</p>{% endif %}
-<button>Logga in med PIN</button></form>
-<p><a href="/login">Logga in med Discord</a></p></main></body></html>

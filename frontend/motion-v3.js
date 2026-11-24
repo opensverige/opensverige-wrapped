@@ -79,11 +79,7 @@ function render(stats, scenes, i, local) {
     t = Math.max(0, local) / fps,
     type = sceneType(s, i, scenes.length),
     e = [];
-  const theme = stats.theme?.colors || {},
-    P = theme.paper || paper,
-    G = theme.green || green,
-    L = theme.lime || lime,
-    R = theme.rust || rust;
+  const P = paper, G = green, L = lime, R = rust;
   const schemes = {
     intro: [G, L],
     outro: [P, G],

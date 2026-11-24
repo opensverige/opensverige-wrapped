@@ -3,15 +3,14 @@ import {createRoot} from 'react-dom/client';
 import {Player} from '@remotion/player';
 import {Html5Audio, Sequence, useCurrentFrame} from 'remotion';
 
-import {motionFrame} from './motion';
+import {motionFrame} from './motion-v3';
 import {saveFilm} from './film-storage';
 import {paint as paintPoster} from './poster';
-import {fps,buildScenes,totalFrames,filmTrack,musicSections} from './design';
+import {fps,buildScenes,totalFrames,soundtrack,musicSections} from './design';
 function YearCard({stats,scenes}) {
   const frame=useCurrentFrame();
-  const track=filmTrack(stats);
-  return <>{track && musicSections(totalFrames(scenes),track.frames).map(part=><Sequence key={part.start} from={part.start} durationInFrames={part.frames} layout="none">
-    <Html5Audio src={track.src} trimBefore={part.from}/>
+  return <>{musicSections(totalFrames(scenes)).map(part=><Sequence key={part.start} from={part.start} durationInFrames={part.frames} layout="none">
+    <Html5Audio src={soundtrack} trimBefore={part.from}/>
   </Sequence>)}<svg viewBox="0 0 1080 1350" width="100%" height="100%" xmlSpace="preserve" role="img" aria-label={stats.name+' · Wrapped 2026'}>
     <defs><clipPath id="wrapped-avatar-circle" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/></clipPath></defs>
     {motionFrame(stats,scenes,frame).map(({elements,scale,y,opacity,radius},layer)=><React.Fragment key={layer}>
@@ -29,20 +28,6 @@ function YearCard({stats,scenes}) {
 let root;
 let currentWorker;
 let viewRevision=0;
-let themePreview;
-window.previewTheme=(host,theme)=>{
-  themePreview ??= createRoot(host);
-  const stats={name:'Exempelmedlem',avatar:'https://cdn.discordapp.com/embed/avatars/2.png',messages:120,days:25,channels:'#verkstaden',count:70,uses:0,months:{'2026-04':50,'2026-05':70},
-    stories:[{kind:'project',title:'Från skiss till testrunda',story:'En första prototyp blev redo för test i verkstaden.',date:'2026-05-04',channel:'verkstaden'}],theme};
-  if(theme.layout==='motion-v3')Object.assign(stats,{
-    activity:{longestStreak:12},emoji:'😂',uses:18,
-    stories:[...stats.stories,{kind:'quote',story:'Den startade på första försöket. Nu blir jag misstänksam.',date:'2026-05-09',channel:'verkstaden'}]
-  });
-  const scenes=buildScenes(stats);
-  themePreview.render(<Player key={theme.id+'-'+theme.layout+'-'+(theme.track?.src||'')} component={YearCard} inputProps={{stats,scenes}}
-    durationInFrames={totalFrames(scenes)} compositionWidth={1080} compositionHeight={1350}
-    fps={fps} controls style={{width:'100%',aspectRatio:'4/5'}}/>);
-};
 function ScriptPreview({stats,onCreate}) {
   const [excluded,setExcluded]=React.useState(new Set());
   function toggle(index) {

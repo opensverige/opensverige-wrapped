@@ -1,10 +1,9 @@
 import {Input, Output, BufferSource, BufferTarget, MP4, Mp4OutputFormat,
   EncodedPacketSink, EncodedVideoPacketSource, EncodedAudioPacketSource} from 'mediabunny';
-import {fps,musicSections,originalTrack} from './design';
+import {fps,musicSections,soundtrack} from './design';
 
-export async function addMusic(videoBytes, duration, track=originalTrack) {
-  if(!track) return new Blob([videoBytes],{type:'video/mp4'});
-  const response = await fetch(track.src);
+export async function addMusic(videoBytes, duration) {
+  const response = await fetch(soundtrack);
   if (!response.ok) throw new Error('Soundtrack unavailable');
   const open = bytes => new Input({source:new BufferSource(bytes),formats:[MP4]});
   const video = open(videoBytes);
@@ -30,7 +29,7 @@ export async function addMusic(videoBytes, duration, track=originalTrack) {
       dest.close();
     }
     await Promise.all([copy(await video.getPrimaryVideoTrack(),picture,[{from:0,start:0,frames:Infinity}]),
-      copy(await audio.getPrimaryAudioTrack(),music,musicSections(Math.round(duration*fps),track.frames))]);
+      copy(await audio.getPrimaryAudioTrack(),music,musicSections(Math.round(duration*fps)))]);
     await output.finalize();
     return new Blob([output.target.buffer], {type:'video/mp4'});
   } finally {

@@ -1,4 +1,4 @@
-import {motionFrame} from './motion';
+import {motionFrame} from './motion-v3';
 import {hand,avatarClip} from './brand';
 
 let loading;

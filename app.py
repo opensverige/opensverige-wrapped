@@ -1,7 +1,6 @@
 from worker import history
 from editorial import EDITOR, FACT_CHECK, SCRIPT_REVIEW
 from stories import KIND as STORY, VERSIONED_RUNS, discord_avatar, RULES, install as install_stories
-import themes
 import films
 import json
 import os
@@ -77,12 +76,10 @@ def form_token():
 def home():
     user = current_user()
     member = None
-    admin = False
     saved_films = []
     if user:
         uid = discord_identity(user)
         member_record = api(f"/guilds/{GUILD}/members/{uid}", "Bot " + os.environ["DISCORD_BOT_TOKEN"])
-        admin = is_theme_admin(member_record)
         channels = readable_channels(member_record)
         with history.connect() as db:
             history.enqueue(db,uid,list(channels))
@@ -92,8 +89,8 @@ def home():
         member = (profile.get("preferred_username") or profile.get("user_name")
                   or profile.get("full_name") or user["user_metadata"].get("full_name")
                   or "Discord-medlem")
-    return render_template("index.html", csrf=form_token() if user else None, member=member, admin=admin,
-                           saved_films=saved_films, pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")))
+    return render_template("index.html", csrf=form_token() if user else None, member=member,
+                           saved_films=saved_films)
 
 
 @app.get("/filmer")
@@ -109,8 +106,7 @@ def film_library():
     by_run = defaultdict(list)
     for film in library:
         by_run[film["run_id"]].append(film)
-    return render_template("films.html", member=member, admin=is_theme_admin(member),
-                           pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")), library=library, snapshots=snapshots,
+    return render_template("films.html", member=member, library=library, snapshots=snapshots,
                            by_run=by_run)
 
 
@@ -126,14 +122,11 @@ def saved_script(run_id):
                          (uid, STORY, str(run_id))).fetchone()
         if not row or not set(row[0]["channels"]) <= channels.keys():
             abort(404)
-        active_theme = themes.read_themes(db,active_only=True)[0]
     run,version = row
-    stats = {k:v for k,v in run["stats"].items() if k!="gollum"}
-    stats["theme"] = active_theme
+    stats = {k:v for k,v in run["stats"].items() if k not in ("gollum","theme")}
     stats.setdefault("avatar", discord_avatar(member,GUILD))
     return render_template("saved-script.html", version=version, run=dict(id=str(run_id),stats=stats,stories=run["stories"]),
-                           channels=channels, member=member, csrf=form_token(), admin=is_theme_admin(member),
-                           pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")))
+                           channels=channels, member=member, csrf=form_token())
 
 
 @app.route("/login")
@@ -355,8 +348,7 @@ def data():
         content_access = bool(flags & ((1 << 18) | (1 << 19)))
     except (requests.RequestException, KeyError, ValueError):
         pass
-    return render_template("data.html", member=member, pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")),
-                           admin=is_theme_admin(member), year_view=year_view, content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token(),
+    return render_template("data.html", member=member, year_view=year_view, content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token(),
                            prompts=[("Nominering", RULES), ("Redigering", EDITOR), ("Manusgranskning", SCRIPT_REVIEW), ("Faktagranskning", FACT_CHECK)])
 
 
@@ -507,12 +499,5 @@ def voice_data():
         if row["channel_id"] in channels
     ]}
 
-def is_theme_admin(member):
-    guild, _, _ = channel_catalog()
-    roles = set(member["roles"]) | {GUILD}
-    return member["user"]["id"] == guild["owner_id"] or any(
-        role["id"] in roles and int(role["permissions"]) & 8 for role in guild["roles"])
-
-themes.install(app, authenticated_member, is_theme_admin, form_token)
 install_stories(app, authenticated_member, readable_channels, GUILD)
 films.install(app, authenticated_member, readable_channels)
