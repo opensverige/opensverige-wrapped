@@ -206,9 +206,10 @@ function render(stats, scenes, i, local) {
     for (let j = 0; j < 70; j++) {
       const p = enter((0.04 * j) / 2);
       const on = j < Math.min(count, 70);
+      const lift = on ? 5 * Math.sin(t * 1.8 - (j % 10) * 0.55 - Math.floor(j / 10) * 0.7) * p : 0;
       rect(
         63 + (j % 10) * 96,
-        350 + Math.floor(j / 10) * 67,
+        350 + Math.floor(j / 10) * 67 - lift,
         78 * p,
         49 * p,
         on ? G : "#DEDCD0",
@@ -221,9 +222,10 @@ function render(stats, scenes, i, local) {
     block(s.title, 62, 150, 950, 80, 2);
     for (let j = 0; j < 3; j++) {
       const p = enter(j * 0.12);
+      const drift = 8 * Math.sin(t * 1.5 + j * 1.4) * p;
       rect(
         (j % 2 ? 1 : -1) * (1 - p) * W,
-        345 + j * 165,
+        345 + j * 165 + drift,
         W,
         145,
         j === 1 ? L : P,
@@ -263,7 +265,7 @@ function render(stats, scenes, i, local) {
     block(s.value, 365, 455, 400, 260, 1, 0.1, L);
     block(s.detail, 64, 980, 950, 95, 2, 0.35, G);
   } else if (type === "quote") {
-    text("“", 35, 560, 440, L, 400, serif, 0.6);
+    text("“", 35, 560 + 9 * Math.sin(t * 1.6), 440, L, 400, serif, 0.6);
     block(s.title, 62, 150, 960, 60, 2, 0, P, 600, mono);
     block(
       String(s.value).replace(/^[”"“]|[”"“]$/g, ""),
@@ -291,14 +293,24 @@ function render(stats, scenes, i, local) {
         22,
       );
     }
-    text("</>", 110, 575, 150, L, 800, mono, enter(0.25));
+    // Anchor the code and cursor to the face of the moving front card.
+    const faceX = 74 + (1 - enter(0.22)) * W + 12 * Math.sin(t * 1.7);
+    const faceY = 335 + 9 * Math.sin(t * 2);
+    text("</>", faceX + 36, faceY + 240, 150, L, 800, mono, enter(0.25));
+    const cursorWidth = 47 * (0.65 + 0.35 * Math.cos(t * 4)) * enter(0.35);
+    rect(faceX + 325, faceY + 248, cursorWidth, 9, L, 3);
+    for (let row = 0; row < 3; row++) {
+      const typed = 0.5 + 0.5 * Math.sin(t * 1.8 - row);
+      const width = (108 + 80 * typed - row * 16) * enter(0.35 + row * 0.08);
+      rect(faceX + 464 + row * 25, faceY + 144 + row * 44, width, 9, L, 4);
+    }
     block(s.value, 60, 745, 960, 112, 3, 0.25, G, 900, sans, 285);
     block(s.detail, 64, 1050, 950, 48, 3, 0.42, G, 400);
   } else if (type === "outro") {
     block("DET HÄR VAR", 62, 145, 960, 90, 1, 0, G, 900);
     profileAvatar(e,stats,63,302,116,G,P);
     block(stats.name, 201, 280, 559, 105, 2, 0.12, G, 900,sans,188);
-    e.push({tag:"image",props:{href:hand,x:761,y:205+5*Math.sin(t),width:258,height:258}});
+    e.push({tag:"image",props:{href:hand,x:761+6*Math.sin(t),y:205+11*Math.sin(t*1.4),width:258,height:258}});
     const entries = Object.entries(stats.months || {}).sort(),
       max = Math.max(1, ...entries.map((x) => x[1]));
     const pitch = 950 / Math.max(1, entries.length);
@@ -313,14 +325,16 @@ function render(stats, scenes, i, local) {
     block(s.title, 62, 150, 960, 66, 2);
     for (let j = 0; j < 8; j++) {
       const p = enter(j * 0.05);
-      path(
-        [
-          [65, 345 + j * 34],
-          [65 + 950 * p, 345 + j * 34],
-        ],
-        type === "humor" ? G : P,
-        15,
-      );
+      // A ripple travels along the printed lines; the margins stay pinned.
+      const points = [];
+      for (let k = 0; k <= 32; k++) {
+        const u = p * k / 32;
+        const phase = 2 * Math.PI * (u - t / 4.8) + j * 0.22;
+        const wave = type === "humor" ? 19 * Math.sin(2 * phase) : 27 * Math.sin(phase);
+        const offset = Math.sin(Math.PI * u) ** 2 * wave * p;
+        points.push([65 + 950 * u, 345 + j * 34 + offset]);
+      }
+      path(points, type === "humor" ? G : P, 15);
     }
     block(s.value, 60, 680, 960, 114, 3, 0.12, fg, 900, sans, 310);
     block(s.detail, 65, 1010, 950, 48, 3, 0.35, fg, 400);

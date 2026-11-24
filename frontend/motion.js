@@ -171,14 +171,19 @@ function layout(stats,scenes,index,local) {
       text('INLÄGG PER MÅNAD',66,407,30,ink,500,mono);
       entries.forEach(([m,n],j)=>{
         const rise=smooth((local-5-j*2)/24), h=211*n/max*rise,x=66+j*pitch;
-        rect(x,720-h,Math.min(pitch*.68,100),h,n===max?rust:ink);
+        const width=Math.min(pitch*.68,100);
+        rect(x,720-h,width,h,n===max?rust:ink);
+        // An inset highlight moves across each bar without changing its value.
+        const shine=width*.22;
+        const sweep=.5+.5*Math.sin(t*1.6-j*.55);
+        if(h>8)rect(x+(width-shine)*sweep,720-h+3,shine,3,paper);
         text(String(n),x,703-h,24,ink,500,mono);
         text(m.slice(-2),x,765,25,ink,500,mono);
       });
-    } else add('image',{href:hand,x:413,y:312,width:495,height:495});
+    } else add('image',{href:hand,x:413,y:312+10*Math.sin(t*1.4),width:495,height:495});
     block(scene.detail,65,890,950,265,92,{delay:16});
   } else if(quote) {
-    text('”',59,477+25*(1-entered),354,'#dcff89',400,serif);
+    text('”',59,477+25*(1-entered)+9*Math.sin(t*1.6),354,'#dcff89',400,serif);
     block(scene.title,67,177,950,102,61,{family:serif,weight:400,style:'italic'});
     block(scene.value.replace(/^”|”$/g,''),64,450,949,530,116,{delay:9});
     block(source,67,1095,930,75,35,{family:mono,weight:500,color:'#dcff89',delay:20});
