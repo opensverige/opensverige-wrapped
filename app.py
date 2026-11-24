@@ -1,6 +1,6 @@
 from worker import history
 from editorial import EDITOR, FACT_CHECK, SCRIPT_REVIEW
-from stories import RULES, install as install_stories
+from stories import KIND as STORY, VERSIONED_RUNS, discord_avatar, RULES, install as install_stories
 import themes
 import films
 import json
@@ -94,6 +94,44 @@ def home():
                   or "Discord-medlem")
     return render_template("index.html", csrf=form_token() if user else None, member=member, admin=admin,
                            saved_films=saved_films, pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")))
+
+
+@app.get("/filmer")
+def film_library():
+    member = authenticated_member()
+    if not isinstance(member, dict):
+        return member
+    uid = member["user"]["id"]
+    channels = readable_channels(member)
+    with history.connect() as db:
+        library = films.saved(db, uid, channels)
+        snapshots = films.snapshots(db, uid, channels)
+    by_run = defaultdict(list)
+    for film in library:
+        by_run[film["run_id"]].append(film)
+    return render_template("films.html", member=member, admin=is_theme_admin(member),
+                           pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")), library=library, snapshots=snapshots,
+                           by_run=by_run)
+
+
+@app.get("/filmer/underlag/<uuid:run_id>")
+def saved_script(run_id):
+    member = authenticated_member()
+    if not isinstance(member, dict):
+        return member
+    uid = member["user"]["id"]
+    channels = readable_channels(member)
+    with history.connect() as db:
+        row = db.execute(f"select result,version from ({VERSIONED_RUNS}) v where cache_key=%s",
+                         (uid, STORY, str(run_id))).fetchone()
+    if not row or not set(row[0]["channels"]) <= channels.keys():
+        abort(404)
+    run,version = row
+    stats = {k:v for k,v in run["stats"].items() if k!="gollum"}
+    stats.setdefault("avatar", discord_avatar(member,GUILD))
+    return render_template("saved-script.html", version=version, run=dict(id=str(run_id),stats=stats,stories=run["stories"]),
+                           channels=channels, member=member, csrf=form_token(), admin=is_theme_admin(member),
+                           pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")))
 
 
 @app.route("/login")

@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 import requests
 from flask import abort, redirect, request
 
-from stories import KIND as STORY
+from stories import KIND as STORY, VERSIONED_RUNS
 from worker import history
 
 FILM = "wrapped-film-v1"
@@ -76,10 +76,24 @@ def signed_link(path, operation, url=None, size=None):
 
 
 def saved(db, uid, channels):
-    rows = db.execute("""select cache_key, result, saved_at from public.osw_generated_results
-                         where member_id=%s and kind=%s order by saved_at desc""", (uid, FILM))
-    return [dict(key=key, date=when.astimezone(ZoneInfo("Europe/Stockholm")), name=data["name"])
-            for key, data, when in rows if set(data["channels"]) <= channels.keys()]
+    rows = db.execute(f"""with runs as ({VERSIONED_RUNS})
+        select f.cache_key,f.result,f.saved_at,r.cache_key,r.version,r.result->'channels'
+        from public.osw_generated_results f left join runs r on r.cache_key=split_part(f.cache_key,'/',1)
+        where f.member_id=%s and f.kind=%s order by f.saved_at desc,f.cache_key""", (uid, STORY, uid, FILM))
+    return [dict(key=key, date=when.astimezone(ZoneInfo("Europe/Stockholm")), name=data["name"],
+                 run_id=run_id, version=version)
+            for key,data,when,run_id,version,source_channels in rows
+            if set(data["channels"]) <= channels.keys() and set(source_channels or []) <= channels.keys()]
+
+
+def snapshots(db, uid, channels):
+    rows = db.execute(f"""with runs as ({VERSIONED_RUNS})
+        select cache_key,version,saved_at,result->'channels',result->'count',result->'stats'->'days',
+               jsonb_array_length(result->'stories')
+        from runs order by version desc""", (uid, STORY))
+    return [dict(id=key, version=version, date=when.astimezone(ZoneInfo("Europe/Stockholm")),
+                 posts=posts, days=days, stories=stories)
+            for key,version,when,required,posts,days,stories in rows if set(required) <= channels.keys()]
 
 
 def install(app, member_for_request, readable_channels):

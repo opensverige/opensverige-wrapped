@@ -13,10 +13,10 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <h1 class="brand-title">Mitt år i <em>OpenSverige.</em></h1>
 <section class="year-panel"><p id="year-progress" role="status">Hämtar årets kanalhistorik och röststatistik …</p><div id="year-preview"></div>
 <button id="retry-data" hidden>Försök hämta data igen</button>
-<div class="year-actions" data-film-csrf="{{ csrf }}"><button id="year-download" hidden>Ladda ned kortet som PNG</button> <button id="year-video" hidden>Ladda ned video (MP4)</button> <button id="retry-film" hidden>Försök spara filmen igen</button></div><p id="video-status" role="status"></p><a hidden id="saved-film-link" href="/#mina-filmer">Visa mina sparade filmer</a></section>
+{% include "film-actions.html" %}</section>
 <script src="{{ url_for('static',filename='year-player.js') }}"></script>
 {% else %}<h1 class="brand-title">Mina data i <em>OpenSverige.</em></h1>{% include "wrapped-band.html" %}{% endif %}
-<section><h2>Mina genererade Wrapped</h2><p id="story-status" role="status"></p><button id="retry-story" hidden>Försök igen</button><div id="wrapped-runs"></div>
+<section><h2>Mina dataversioner</h2><a href="/filmer">Se mina filmer och jämför underlag</a><p id="story-status" role="status"></p><button id="retry-story" hidden>Försök igen</button><div id="wrapped-runs"></div>
 <details><summary>Visa aktuella AI-prompter</summary>{% for name, prompt in prompts %}<h3>{{ name }}</h3><pre class="wrapped-input">{{ prompt }}</pre>{% endfor %}</details></section>
 <section><h2>Din Discord-profil</h2><dl>{% for label,value in rows.items() %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></section>
 <section><h2>Din aktivitet 2026</h2><p>Din aktivitet i {{ channels|length }} läsbara kanalchattar. Dagar räknas i svensk tid. Textstatistiken gäller kanalchattar utanför trådar och forum. Rösttid mäts från 23 november 2026 och inkluderar skärmdelning. Äldre Statbot-historik är ännu inte importerad.</p><p id="voice-status" role="status">Hämtar röststatistik …</p>
@@ -450,4 +450,4 @@ document.querySelector('#voice').onclick = async function () {
   }
 };
 document.querySelector('#voice').click();
-</script><script src="/static/stories.js"></script><script>button.click();</script></html>
+</script><script src="/static/film-input.js"></script><script src="/static/stories.js"></script><script>button.click();</script></html>

@@ -45,12 +45,19 @@ def editorial_ask(instruction, data):
     return ask(instruction, data, model=os.getenv("OSW_EDITOR_MODEL") or "gpt-4.1")
 
 
+# Legacy completed runs were numbered chronologically. Rank that cohort before
+# applying channel permissions; new snapshots receive a permanent number on completion.
+VERSIONED_RUNS = """select cache_key,result,saved_at,
+    coalesce((result->>'data_version')::bigint,
+        row_number() over(partition by (result->>'data_version' is null) order by saved_at,cache_key)) as version
+    from public.osw_generated_results where member_id=%s and kind=%s and result->>'done'='true'"""
+
+
 def private_runs(db, uid, channels):
-    rows = db.execute("""select cache_key,result,saved_at from public.osw_generated_results
-        where member_id=%s and kind=%s and result->>'done'='true' order by saved_at desc""",
-        (uid,KIND)).fetchall()
-    return [dict(id=k,stats={field:value for field,value in r["stats"].items() if field!="gollum"},stories=r["stories"],count=r["count"],
-                 time=when.isoformat()) for k,r,when in rows if set(r["channels"])<=channels.keys()]
+    rows = db.execute(VERSIONED_RUNS + " order by version desc", (uid,KIND)).fetchall()
+    return [dict(id=k, version=version, stats={field:value for field,value in r["stats"].items() if field!="gollum"},
+                 stories=r["stories"],count=r["count"],time=when.isoformat())
+            for k,r,when,version in rows if set(r["channels"])<=channels.keys()]
 
 
 def discord_avatar(member, guild_id):
@@ -158,6 +165,9 @@ def install(app, authenticated_member, readable_channels, guild_id):
                             attachments={mid:[f["filename"] for f in files or [] if isinstance(f.get("filename"),str)] for mid,text,files in evidence_rows}
                             run["stories"]=edit(candidates, originals, editorial_ask, attachments)
                         run["stats"]["conversation"]=conversation(db,uid,run["channels"],run["upper"])
+                        db.execute("select pg_advisory_xact_lock(hashtextextended(%s,1))", (uid,))
+                        run["data_version"] = db.execute("select coalesce(max(version),0)+1 from (" +
+                            VERSIONED_RUNS + ") v", (uid,KIND)).fetchone()[0]
                         run["done"]=True
                 except (requests.RequestException,KeyError,IndexError,TypeError,ValueError):
                     app.logger.warning("Wrapped editorial step failed",exc_info=False)

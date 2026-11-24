@@ -1,0 +1,34 @@
+<!doctype html><html lang="sv"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mina filmer · OpenSverige Wrapped</title><link rel="stylesheet" href="/static/site.css">
+</head><body>{% include "site-header.html" %}
+<main class="shell library" id="innehall">
+<h1>Mina <em>filmer.</em></h1>
+{% if library %}
+<div class="film-grid">
+{% for film in library %}<article class="library-film" id="film-{{ film.key|replace('/','-') }}">
+  <video aria-label="{{ film.name }} · Wrapped 2026{% if film.version %} · dataversion {{ film.version }}{% endif %}" controls playsinline preload="metadata" loading="lazy" src="/filmer/{{ film.key }}"></video>
+  <h2>{{ film.name }} · Wrapped 2026</h2>
+  {% if film.version %}<a href="/data#underlag-{{ film.run_id }}">Byggd på dataversion {{ film.version }}</a>{% else %}<p>Uppgift om dataversion saknas.</p>{% endif %}
+  <p class="film-date">Film sparad <time datetime="{{ film.date.isoformat() }}">{{ film.date.strftime('%Y-%m-%d kl. %H.%M') }}</time></p>
+  <a class="secondary-action" download href="/filmer/{{ film.key }}?download=1">Ladda ned MP4</a>
+</article>{% endfor %}
+</div>
+{% else %}
+<p>Du har inga sparade filmer ännu.</p>
+{% if not snapshots %}<a class="primary-action" href="/mitt-ar">Generera mitt år <span aria-hidden="true">→</span></a>{% endif %}
+{% endif %}
+{% if snapshots %}
+<section class="version-list">
+<h2>Jämför dataversioner</h2>
+<p>Varje rad visar underlaget som sparades vid den körningen. Öppna en version för att läsa vilka berättelser som valdes.</p>
+<div class="version-scroll" tabindex="0" role="region" aria-label="Jämförelse av sparade dataversioner">
+<table><thead><tr><th scope="col">Underlag</th><th scope="col">Sparat</th><th scope="col">Inlägg</th><th scope="col">Aktiva dagar</th><th scope="col">Berättelser i manuset</th><th scope="col">Filmer</th></tr></thead>
+<tbody>{% for snap in snapshots %}<tr id="version-{{ snap.id }}">
+<th scope="row"><a href="/data#underlag-{{ snap.id }}">Dataversion {{ snap.version }}</a></th>
+<td><time datetime="{{ snap.date.isoformat() }}">{{ snap.date.strftime('%Y-%m-%d %H.%M') }}</time></td>
+<td>{{ snap.posts }}</td><td>{{ snap.days if snap.days is not none else '–' }}</td><td>{{ snap.stories }}</td>
+<td>{% for film in by_run.get(snap.id, []) %}<a href="#film-{{ film.key|replace('/','-') }}">Visa film{% if loop.length > 1 %} · {{ film.date.strftime('%d/%m %H.%M') }}{% endif %}</a><br>{% else %}Ingen sparad MP4<br>{% endfor %}<a href="/filmer/underlag/{{ snap.id }}">Skapa från underlaget</a></td>
+</tr>{% endfor %}</tbody></table>
+</div></section>{% endif %}
+</main></body></html>

@@ -1,17 +1,9 @@
 const runsList = document.querySelector('#wrapped-runs');
 const storyStatus = document.querySelector('#story-status');
 let currentYearStats;
-function filmInput(run) {
-  const stats = {...run.stats};
-  stats.stories = run.stories.map(({kind,title,story,sources}) => {
-    const source=kind==='change' ? [...sources].sort((a,b)=>b.date.localeCompare(a.date))[0] : sources[0];
-    return {kind,title,story,date:source?.date,channel:channels[source?.channel]};
-  });
-  return stats;
-}
 function displayVersion(run) {
   if (document.querySelector('#year-preview')) {
-    window.showYear({...filmInput(run), runId:run.id});
+    window.showYear({...filmInput(run, channels), runId:run.id});
     yearProgress.textContent='Manuset är klart.';
   }
 }
@@ -21,15 +13,20 @@ async function loadRuns(selected) {
   const {runs} = await response.json();
   runsList.replaceChildren();
   if (!runs.length) runsList.textContent = 'Inga sparade versioner ännu.';
-  for (const [index,run] of runs.entries()) {
+  for (const run of runs) {
     const details=document.createElement('details');
+    details.id='underlag-'+run.id;
     const summary=document.createElement('summary');
-    summary.textContent='Version '+(runs.length-index)+' · '+new Date(run.time).toLocaleString('sv-SE',{timeZone:'Europe/Stockholm'})+' · '+run.count+' inlägg';
+    summary.textContent='Dataversion '+run.version+' · '+new Date(run.time).toLocaleString('sv-SE',{timeZone:'Europe/Stockholm'})+' · '+run.count+' inlägg';
     details.append(summary);
+    const filmsLink=document.createElement('a');
+    filmsLink.href='/filmer#version-'+run.id;
+    filmsLink.textContent='Filmer från dataversion '+run.version;
+    details.append(filmsLink);
     const input=document.createElement('details'), label=document.createElement('summary'), json=document.createElement('pre');
     label.textContent='Visa filmens input (JSON)';
     json.className='wrapped-input';
-    input.ontoggle=()=>{ if(input.open) json.textContent=JSON.stringify(filmInput(run),null,2); };
+    input.ontoggle=()=>{ if(input.open) json.textContent=JSON.stringify(filmInput(run, channels),null,2); };
     input.append(label,json);
     details.append(input);
     if (!run.stories.length) details.append('Underlaget gav inga säkra berättelser.');
@@ -93,4 +90,13 @@ async function generateStories(stats, resume=false) {
     retry.onclick=()=>generateStories(currentYearStats,true);
   } finally {analysing=false;button.disabled=false;}
 }
-loadRuns().catch(error=>{runsList.textContent=error.message;});
+loadRuns().then(openLinkedVersion).catch(error=>{runsList.textContent=error.message;});
+
+function openLinkedVersion() {
+  const target=document.getElementById(location.hash.slice(1));
+  if (target && target.parentElement===runsList) {
+    target.open=true;
+    target.scrollIntoView({block:'start'});
+  }
+}
+window.addEventListener('hashchange',openLinkedVersion);

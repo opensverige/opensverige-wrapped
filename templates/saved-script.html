@@ -1,0 +1,10 @@
+<!doctype html><html lang="sv"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Film från dataversion {{ version }} · OpenSverige Wrapped</title>
+<link rel="stylesheet" href="/static/wrapped.css"><link rel="stylesheet" href="/static/site.css">
+</head><body>{% include "site-header.html" %}<main class="shell library" id="innehall">
+<h1>Dataversion <em>{{ version }}.</em></h1>
+<section class="year-panel"><div id="year-preview"></div>{% include "film-actions.html" %}</section>
+</main><script src="/static/film-input.js"></script><script src="/static/year-player.js"></script>
+<script>const run={{ run|tojson }}; window.showYear({...filmInput(run,{{ channels|tojson }}),runId:run.id});</script>
+</body></html>

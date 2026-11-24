@@ -20,7 +20,7 @@
     <div class="feature-copy">
       <p class="feature-kicker">Din senaste årsfilm</p>
       <h1 id="latest-title">{{ latest.name }}<em>Wrapped.</em></h1>
-      <p class="film-date">Sparad <time datetime="{{ latest.date.isoformat() }}">{{ latest.date.strftime('%Y-%m-%d · %H.%M') }}</time></p>
+      <p class="film-date">Sparad <time datetime="{{ latest.date.isoformat() }}">{{ latest.date.strftime('%Y-%m-%d · %H.%M') }}</time>{% if latest.version %} · <a href="/data#underlag-{{ latest.run_id }}">Dataversion {{ latest.version }}</a>{% endif %}</p>
       <div class="feature-actions">
         <a class="primary-action" href="/filmer/{{ latest.key }}?download=1" download="OpenSverige-Wrapped-2026.mp4">Ladda ned MP4 <span aria-hidden="true">↓</span></a>
         <a class="secondary-action" href="/mitt-ar">Generera en ny film</a>
@@ -42,14 +42,7 @@
       else film.addEventListener('loadedmetadata', showCover, {once: true});
     </script>
   </section>
-  {% if saved_films|length > 1 %}
-  <details class="archive"><summary>Tidigare filmer ({{ saved_films|length - 1 }})</summary>
-    {% for film in saved_films[1:] %}<article>
-      <h2>{{ film.name }} · {{ film.date.strftime('%Y-%m-%d kl. %H.%M') }}</h2>
-      <video controls playsinline preload="none" aria-label="{{ film.name }} · tidigare årsfilm" src="/filmer/{{ film.key }}"></video>
-      <a class="secondary-action" href="/filmer/{{ film.key }}?download=1" download="OpenSverige-Wrapped-2026.mp4">Ladda ned MP4</a>
-    </article>{% endfor %}
-  </details>{% endif %}
+  <a class="secondary-action" href="/filmer">Alla mina filmer ({{ saved_films|length }})</a>
 {% else %}
   <section class="feature">
     <div class="feature-copy">

@@ -45,10 +45,27 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Bri
 .art-stage img { position: absolute; height: 100%; width: 100%; object-fit: contain; object-position: center bottom; }
 .film-stage { padding: clamp(1rem, 2.6vw, 2rem); background: repeating-linear-gradient(135deg, #2c4432 0 1px, transparent 1px 16px), var(--pine); }
 .film-stage video { display: block; width: min(100%, 21rem); aspect-ratio: 4/5; background: #19251b; box-shadow: 0 12px 30px #101e1580; }
-.archive { margin-block: 1.5rem; }
-.archive summary { cursor: pointer; width: fit-content; padding-block: .6rem; font-weight: 650; }
-.archive article { padding: 1rem 0; border-bottom: 1px solid var(--rule); }
-.archive video { display: block; width: min(100%, 18rem); aspect-ratio: 4/5; }
+.library { padding-block: clamp(1.5rem, 5vw, 4rem); }
+.library h1 { font-size: clamp(3rem, 6vw, 5.5rem); line-height: 1; letter-spacing: -.065em; margin: 0 0 2rem; }
+.library h1 em { color: var(--rust); font-family: Georgia, serif; font-weight: normal; }
+.library a:not(.primary-action), .film-date a { color: var(--pine); text-underline-offset: .2em; }
+.film-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(min(100%,18rem),1fr)); gap: 2rem; }
+.library-film { min-width: 0; padding-bottom: 1rem; border-bottom: 1px solid var(--rule); }
+.library-film h2 { font-size: 1.3rem; margin: 1rem 0 .5rem; overflow-wrap: anywhere; }
+.library-film video { display: block; width: 100%; aspect-ratio: 4/5; background: var(--pine); }
+.library-film .film-date { margin: .55rem 0 0; }
+.version-list { margin-top: 3rem; }
+.version-list > p { max-width: 64ch; line-height: 1.5; }
+.version-scroll { overflow-x: auto; }
+.version-scroll table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.version-scroll th, .version-scroll td { padding: .85rem .7rem; text-align: left; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.version-scroll thead { background: #edf0e6; }
+.library .year-panel { padding: clamp(1rem,4vw,3rem); border: 1px solid var(--rule); }
+.library .year-panel button { padding: .7em 1em; font: inherit; cursor: pointer; }
+@media (max-width: 550px) {
+  .site-header .site-nav { flex-wrap: wrap; gap: 0 .75rem; }
+  .site-header .site-links { gap: .85rem; }
+}
 .home-stat { padding-block: 1rem; border-bottom: 1px solid var(--rule); }
 .home-stat strong { font-size: 2.5rem; }
 .wrapped-data > p, .wrapped-data section > p { max-width: 80ch; }
