@@ -1,13 +1,7 @@
 const runsList = document.querySelector('#wrapped-runs');
 const storyStatus = document.querySelector('#story-status');
 let currentYearStats;
-function displayVersion(run) {
-  if (document.querySelector('#year-preview')) {
-    window.showYear({...filmInput(run, channels), runId:run.id});
-    yearProgress.textContent='Manuset är klart.';
-  }
-}
-async function loadRuns(selected) {
+async function loadRuns() {
   const response = await fetch('/data/wrappers');
   if (!response.ok) throw new Error('Historiken kunde inte läsas.');
   const {runs} = await response.json();
@@ -43,14 +37,6 @@ async function loadRuns(selected) {
         details.append(link,' ');
       }
     }
-    if (document.querySelector('#year-preview')) {
-      const preview=document.createElement('button');
-      preview.textContent='Läs manuset för den här versionen';
-      preview.onclick=()=>displayVersion(run);
-      details.append(document.createElement('p'),preview);
-    }
-    details.open=run.id===selected;
-    if(details.open) displayVersion(run);
     runsList.append(details);
   }
 }
@@ -81,8 +67,7 @@ async function generateStories(stats, resume=false) {
       yearProgress.textContent=storyStatus.textContent+' Förbereder ditt granskade manus …';
       if(step.done) break;
     }
-    await loadRuns(generationId);
-    storyStatus.textContent='Din Wrapped är sparad.';
+    location.replace('/filmer#version-'+generationId);
   } catch(error) {
     yearProgress.textContent=error.message;
     storyStatus.textContent=error.message;

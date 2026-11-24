@@ -23,7 +23,7 @@
       <p class="film-date">Sparad <time datetime="{{ latest.date.isoformat() }}">{{ latest.date.strftime('%Y-%m-%d · %H.%M') }}</time>{% if latest.version %} · <a href="/data#underlag-{{ latest.run_id }}">Dataversion {{ latest.version }}</a>{% endif %}</p>
       <div class="feature-actions">
         <a class="primary-action" href="/filmer/{{ latest.key }}?download=1" download="OpenSverige-Wrapped-2026.mp4">Ladda ned MP4 <span aria-hidden="true">↓</span></a>
-        <a class="secondary-action" href="/mitt-ar">Generera en ny film</a>
+        <a class="secondary-action" href="/filmer#valj-dataversion">Generera en ny film</a>
       </div>
     </div>
     <div class="feature-stage film-stage"><video id="latest-film" controls playsinline preload="metadata" aria-label="{{ latest.name }} · Wrapped 2026" src="/filmer/{{ latest.key }}"></video></div>
@@ -50,7 +50,7 @@
       <h1>Ditt år i<em>OpenSverige.</em></h1>
       <p class="feature-intro">Dina byggen, samtal och sidospår från Discord blir en egen film. Du får läsa manuset först.</p>
       <div class="feature-actions">
-        {% if member %}<a class="primary-action" href="/mitt-ar">Generera mitt år <span aria-hidden="true">→</span></a>
+        {% if member %}<a class="primary-action" href="/filmer#valj-dataversion">Generera mitt år <span aria-hidden="true">→</span></a>
         {% else %}<a class="primary-action" href="/login">Logga in med Discord <span aria-hidden="true">→</span></a>{% endif %}
       </div>
     </div>

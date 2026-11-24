@@ -10,11 +10,10 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 #daily summary{cursor:pointer;padding:.55rem 0;border-bottom:1px solid #eee}#daily li{padding:.55rem 0}#daily li div{white-space:pre-wrap;overflow-wrap:anywhere}
 </style><link rel="stylesheet" href="{{ url_for('static',filename='wrapped.css') }}"><link rel="stylesheet" href="/static/site.css">
 {% include "site-header.html" %}<main class="wrapped-data shell" id="innehall">{% if year_view %}
-<h1 class="brand-title">Mitt år i <em>OpenSverige.</em></h1>
-<section class="year-panel"><p id="year-progress" role="status">Hämtar årets kanalhistorik och röststatistik …</p><div id="year-preview"></div>
+<h1 class="brand-title">Ny <em>dataversion.</em></h1>
+<section class="year-panel"><p id="year-progress" role="status">Hämtar årets kanalhistorik och röststatistik …</p>
 <button id="retry-data" hidden>Försök hämta data igen</button>
-{% include "film-actions.html" %}</section>
-<script src="{{ url_for('static',filename='year-player.js') }}"></script>
+</section>
 {% else %}<h1 class="brand-title">Mina data i <em>OpenSverige.</em></h1>{% include "wrapped-band.html" %}{% endif %}
 <section><h2>Mina dataversioner</h2><a href="/filmer">Se mina filmer och jämför underlag</a><p id="story-status" role="status"></p><button id="retry-story" hidden>Försök igen</button><div id="wrapped-runs"></div>
 <details><summary>Visa aktuella AI-prompter</summary>{% for name, prompt in prompts %}<h3>{{ name }}</h3><pre class="wrapped-input">{{ prompt }}</pre>{% endfor %}</details></section>

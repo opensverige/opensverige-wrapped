@@ -124,10 +124,12 @@ def saved_script(run_id):
     with history.connect() as db:
         row = db.execute(f"select result,version from ({VERSIONED_RUNS}) v where cache_key=%s",
                          (uid, STORY, str(run_id))).fetchone()
-    if not row or not set(row[0]["channels"]) <= channels.keys():
-        abort(404)
+        if not row or not set(row[0]["channels"]) <= channels.keys():
+            abort(404)
+        active_theme = themes.read_themes(db,active_only=True)[0]
     run,version = row
     stats = {k:v for k,v in run["stats"].items() if k!="gollum"}
+    stats["theme"] = active_theme
     stats.setdefault("avatar", discord_avatar(member,GUILD))
     return render_template("saved-script.html", version=version, run=dict(id=str(run_id),stats=stats,stories=run["stories"]),
                            channels=channels, member=member, csrf=form_token(), admin=is_theme_admin(member),

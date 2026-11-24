@@ -60,6 +60,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Bri
 .version-scroll table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .version-scroll th, .version-scroll td { padding: .85rem .7rem; text-align: left; border-bottom: 1px solid var(--rule); white-space: nowrap; }
 .version-scroll thead { background: #edf0e6; }
+.version-scroll tr:target { background: #edf0e6; }
 .library .year-panel { padding: clamp(1rem,4vw,3rem); border: 1px solid var(--rule); }
 .library .year-panel button { padding: .7em 1em; font: inherit; cursor: pointer; }
 @media (max-width: 550px) {
