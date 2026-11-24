@@ -170,14 +170,19 @@ function render(stats, scenes, i, local) {
     const fit = lines(value, 960, 238, 900, sans, 1, 270);
     text(value, 53, 555, fit.size, fg, 900);
     block(s.unit, 63, 575, 950, 69, 1);
-    if (s.graphic === "months" && Object.keys(stats.months).length) {
+    if (s.graphic === "months" && Object.values(stats.months || {}).some(n => n > 0)) {
       const months = Object.entries(stats.months).sort();
       const tallest = Math.max(1, ...months.map(([,n])=>n));
       const pitch = 950/months.length;
       const labels = ["JAN","FEB","MAR","APR","MAJ","JUN","JUL","AUG","SEP","OKT","NOV","DEC"];
       months.forEach(([month,n], j)=>{
         const h = 238*n/tallest*enter(j*.03);
-        rect(65+j*pitch, 997-h, Math.min(92,pitch*.75), h, n===tallest ? accent : muted, 4);
+        const x = 65+j*pitch, w = Math.min(92,pitch*.75);
+        rect(x, 997-h, w, h, n===tallest ? accent : muted, 4);
+        // Light travels inside the column so its measured height stays fixed.
+        const band = Math.min(16,h*.28);
+        const sweep = .5+.5*Math.sin(t*3.2-j*.65);
+        rect(x+4, 997-h+(h-band)*sweep, w-8, band, n===tallest ? muted : accent, 3);
         text(labels[Number(month.slice(-2))-1], 65+j*pitch, 1040, 26, fg, 600, mono);
       });
     } else if (["streak","days","share"].includes(s.graphic)) {
@@ -185,11 +190,19 @@ function render(stats, scenes, i, local) {
       const count = share ? 100 : Math.min(366, s.quantity);
       const cols = share ? 20 : Math.max(4, Math.ceil(Math.sqrt(count*3.5)));
       const rows = Math.ceil(count/cols);
+      const stepX=950/cols, stepY=Math.min(80,250/rows);
       for (let j=0; j<count; j++) {
-        const stepX=950/cols, stepY=Math.min(80,250/rows);
         const p=enter(.45*j/count);
-        rect(65+(j%cols)*stepX, 751+Math.floor(j/cols)*stepY,
-          Math.max(2,stepX-5)*p, Math.max(2,stepY-5)*p,
+        const col=j%cols, row=Math.floor(j/cols);
+        const phase=t*3.2-col*.40-row*.52;
+        const wave=Math.sin(phase);
+        // Percentage cells breathe around fixed centres. Day and streak cells
+        // travel in a wave while their number and colours stay legible.
+        const inset=share ? .10*(1+wave) : 0;
+        const lift=share ? 0 : Math.min(11,stepY*.19)*wave*p;
+        const width=Math.max(2,stepX-5), height=Math.max(2,stepY-5);
+        rect(65+col*stepX+width*inset/2, 751+row*stepY+height*inset/2+lift,
+          width*(1-inset)*p, height*(1-inset)*p,
           share && j>=s.ratio ? muted : accent, 5);
       }
     } else {
