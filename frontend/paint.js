@@ -1,50 +1,69 @@
-import {fps, scenes, secondsPerScene, theme} from './design';
-export function paint(canvas, stats, frame) {
-  const ctx = canvas.getContext('2d');
-  const elapsed = frame / fps;
-  const index = Math.min(scenes.length-1, Math.floor(elapsed/secondsPerScene));
-  const local = elapsed-index*secondsPerScene;
-  const scene = scenes[index];
-  const [bg,ink,accent] = scene.colors.map(key=>theme[key]);
-  ctx.fillStyle=bg;
-  ctx.fillRect(0,0,1080,1350);
-  // Each scene has its own moving contour pattern and a quiet area for type.
+import {motionFrame} from './motion';
+import {hand,avatarClip} from './brand';
+
+let loading;
+function loadHand() {
+  loading ??= fetch(hand).then(async response=>{
+    if(!response.ok) throw new Error('Kunde inte läsa omslagsbilden.');
+    return createImageBitmap(await response.blob());
+  }).catch(error=>{ loading=undefined;throw error; });
+  return loading;
+}
+export async function loadImages(stats) {
+  const avatar=stats.avatar && fetch(stats.avatar,{credentials:'omit',signal:AbortSignal.timeout(8000)})
+    .then(response=>response.ok?response.blob():null)
+    .then(blob=>blob && createImageBitmap(blob)).catch(()=>null);
+  const [keyart,portrait]=await Promise.all([loadHand(),avatar]);
+  return {keyart,portrait};
+}
+
+function draw(ctx,layer,images) {
   ctx.save();
-  ctx.strokeStyle=accent;
-  ctx.lineWidth=5;
-  for(let ring=1;ring<=17;ring++) {
-    ctx.beginPath();
-    ctx.ellipse(index%2 ? 160 : 890,300+18*Math.sin(local*.65),ring*37,ring*(14+index),-.42,0,Math.PI*2*Math.min(1,(local+.25)/1.25));
-    ctx.stroke();
+  if(layer.radius!==null) {
+    ctx.beginPath();ctx.arc(660,530,layer.radius,0,Math.PI*2);ctx.clip();
   }
-  ctx.restore();
-  ctx.fillStyle=bg;
-  ctx.fillRect(0,545,1080,805);
-  function label(text,y,size,color,weight) {
-    ctx.fillStyle=color;
-    ctx.font=weight+' '+size+'px '+theme.font;
-    ctx.fillText(text,68,y,944);
-  }
-  const resolve = field=>typeof field==='function'?field(stats):field;
-  label('OpenSverige   /   Wrapped 2026',104,39,ink,650);
-  ctx.save();
-  const enter=Math.min(1,local/.65);
-  ctx.translate(0,48*(1-enter)**2);
-  ctx.globalAlpha=Math.max(.1,enter);
-  label(resolve(scene.title),695,65,ink,600);
-  if (stats.memory && index === 3) {
-    ctx.font = '800 65px '+theme.font;
-    const lines = [''];
-    for (const word of stats.memory.title.split(/\s+/)) {
-      const candidate = (lines.at(-1)+' '+word).trim();
-      if (lines.at(-1) && ctx.measureText(candidate).width > 944) lines.push(word);
-      else lines[lines.length-1] = candidate;
+  ctx.translate(540*(1-layer.scale),675*(1-layer.scale)+layer.y);
+  ctx.scale(layer.scale,layer.scale);
+  for(const {tag,props:p,value} of layer.elements) {
+    if(tag==='image') {
+      if(p.clipPath===avatarClip) {
+        if(!images.portrait)continue;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(p.x+p.width/2,p.y+p.height/2,p.width/2,0,2*Math.PI);
+        ctx.clip();
+        ctx.drawImage(images.portrait,p.x,p.y,p.width,p.height);
+        ctx.restore();
+      } else ctx.drawImage(images.keyart,p.x,p.y,p.width,p.height);
     }
-    lines.forEach((line,i)=>label(line,790+i*70,65,ink,800));
-  } else label(scene.value(stats),925,157,ink,800);
-  label(scene.detail(stats),1022,47,ink,550);
+    else if(tag==='rect') {
+      ctx.fillStyle=p.fill;
+      if(p.rx) {
+        ctx.beginPath();ctx.roundRect(p.x,p.y,p.width,p.height,p.rx);ctx.fill();
+      } else ctx.fillRect(p.x,p.y,p.width,p.height);
+    } else if(tag==='path') {
+      ctx.strokeStyle=p.stroke;ctx.lineWidth=p.strokeWidth;ctx.stroke(new Path2D(p.d));
+    } else if(tag==='text') {
+      ctx.globalAlpha=p.opacity;
+      ctx.fillStyle=p.fill;
+      ctx.font=`${p.fontStyle} ${p.fontWeight} ${p.fontSize}px ${p.fontFamily}`;
+      ctx.textAlign=p.textAnchor==='middle'?'center':'left';
+      ctx.fillText(value,p.x,p.y);
+      ctx.globalAlpha=1;
+    }
+  }
   ctx.restore();
-  ctx.fillStyle=accent;
-  ctx.fillRect(68,1184,944*Math.min(1,(local+.1)/secondsPerScene),9);
-  label(stats.name+'   /   2026 hittills',1270,35,ink,500);
+}
+let overlay;
+export function paint(canvas,stats,frame,scenes,image) {
+  const ctx=canvas.getContext('2d');
+  for(const layer of motionFrame(stats,scenes,frame)) {
+    if(layer.opacity===1) { draw(ctx,layer,image);continue; }
+    if(layer.opacity===0) continue;
+    overlay ??= new OffscreenCanvas(canvas.width,canvas.height);
+    const other=overlay.getContext('2d');
+    other.clearRect(0,0,overlay.width,overlay.height);
+    draw(other,layer,image);
+    ctx.save();ctx.globalAlpha=layer.opacity;ctx.drawImage(overlay,0,0);ctx.restore();
+  }
 }

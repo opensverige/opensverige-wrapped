@@ -1,4 +1,7 @@
 from worker import history
+from editorial import EDITOR, FACT_CHECK, SCRIPT_REVIEW
+from stories import RULES, install as install_stories
+import themes
 import json
 import os
 import re
@@ -70,9 +73,11 @@ def form_token():
 def home():
     user = current_user()
     member = None
+    admin = False
     if user:
         uid = discord_identity(user)
         member_record = api(f"/guilds/{GUILD}/members/{uid}", "Bot " + os.environ["DISCORD_BOT_TOKEN"])
+        admin = is_theme_admin(member_record)
         with history.connect() as db:
             history.enqueue(db,uid,list(readable_channels(member_record)))
         profile = next((entry.get("identity_data") or {} for entry in user.get("identities", [])
@@ -80,7 +85,8 @@ def home():
         member = (profile.get("preferred_username") or profile.get("user_name")
                   or profile.get("full_name") or user["user_metadata"].get("full_name")
                   or "Discord-medlem")
-    return render_template("index.html", csrf=form_token() if user else None, member=member)
+    return render_template("index.html", csrf=form_token() if user else None, member=member, admin=admin,
+                           pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")))
 
 
 @app.route("/login")
@@ -302,7 +308,8 @@ def data():
         content_access = bool(flags & ((1 << 18) | (1 << 19)))
     except (requests.RequestException, KeyError, ValueError):
         pass
-    return render_template("data.html", year_view=year_view, content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token())
+    return render_template("data.html", year_view=year_view, content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token(),
+                           prompts=[("Nominering", RULES), ("Redigering", EDITOR), ("Manusgranskning", SCRIPT_REVIEW), ("Faktagranskning", FACT_CHECK)])
 
 
 @app.post("/data/signatures")
@@ -452,5 +459,11 @@ def voice_data():
         if row["channel_id"] in channels
     ]}
 
-from stories import install as install_stories
-install_stories(app, authenticated_member, readable_channels)
+def is_theme_admin(member):
+    guild, _, _ = channel_catalog()
+    roles = set(member["roles"]) | {GUILD}
+    return member["user"]["id"] == guild["owner_id"] or any(
+        role["id"] in roles and int(role["permissions"]) & 8 for role in guild["roles"])
+
+themes.install(app, authenticated_member, is_theme_admin, form_token)
+install_stories(app, authenticated_member, readable_channels, GUILD)

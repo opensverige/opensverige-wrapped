@@ -1,0 +1,72 @@
+.wrapped-band {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  min-height: 6rem;
+  overflow: hidden;
+  margin-block: 1rem;
+}
+.band-lane {
+  overflow: hidden;
+  padding-block: .35em;
+  border-block: 1px solid #dedbd4;
+  color: #706d65;
+  font: clamp(1.1rem, 3vw, 1.75rem)/1.15 ui-monospace, monospace;
+  transform: rotate(-1.3deg) scaleX(1.025);
+}
+.band-lane:nth-child(2) {
+  background: #171717;
+  color: #fbfaf7;
+  border-color: #171717;
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+  transform: rotate(.8deg) scaleX(1.025);
+}
+.band-track { display: flex; width: max-content; animation: wrapped-scroll 5s ease-out both; }
+.band-track span { white-space: pre; }
+.wrapped-band i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #171717;
+  border-radius: 100px;
+  padding: .25em .78em .34em;
+  color: #171717;
+  background: #fbfaf7;
+  font: italic clamp(1.7rem, 4vw, 2.8rem)/1 Georgia, serif;
+  box-shadow: 0 8px 20px #17171716;
+}
+@keyframes wrapped-scroll { from { transform: translateX(0); } to { transform: translateX(-12.5%); } }
+@media (prefers-reduced-motion: reduce) { .band-track { animation: none; } }
+
+.brand-title em { color: #ac3917; font: italic 1.03em/.98 Georgia, serif; letter-spacing: -.055em; }
+.hero.brand-hero {
+  padding: 0;
+  border-radius: 0;
+  border: 1px solid #dedbd4;
+  background: #fbfaf7;
+}
+.brand-cover { position: relative; isolation: isolate; overflow: hidden; padding: clamp(24px, 5vw, 62px); min-height: clamp(200px, 27vw, 325px); }
+.brand-cover h1 { position: relative; width: 62%; }
+@media (max-width: 600px) {
+  .brand-cover h1 { width: 92%; font-size: clamp(2rem, 9.5vw, 3.5rem); }
+}
+.brand-cover em { display: block; }
+.brand-cover img { position: absolute; z-index: -1; right: -2%; bottom: -13%; height: 110%; width: 42%; object-fit: contain; object-position: center bottom; }
+.brand-actions { padding: 0 clamp(24px, 5vw, 62px) clamp(24px, 5vw, 56px); }
+.brand-actions p { margin-top: .8em; }
+.year-panel #year-preview > div { margin-inline: auto; }
+.year-actions { margin-top: 1.25rem; display:flex; gap:.6rem; justify-content:center; flex-wrap:wrap; }
+.year-panel #video-status { text-align:center; }
+.year-panel { border-radius: 0; background: #fbfaf7; }
+.wrapped-data section { border-radius: 0; }
+.wrapped-data button { background: #171717; border-radius: 100px; }
+.wrapped-data header a { color: #171717; font-weight: 700; text-decoration: none; }
+.wrapped-input { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 26rem; overflow: auto; background: #fbfaf7; border: 1px solid #dedbd4; padding: 1rem; }
+.script-preview ol { padding-left: 1.6rem; }
+.script-preview li { border-top: 1px solid #dedbd4; padding: .75rem .25rem; }
+.script-preview li p { margin: .25rem 0; }
+.script-preview label { font-weight: 700; cursor: pointer; }

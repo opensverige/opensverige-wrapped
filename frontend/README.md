@@ -1,9 +1,9 @@
 # Ändra årsvideons design
 
-Redigera `frontend/design.js` för färger, typsnitt, scenordning och rubriker. Varje scen får sina värden från medlemmens färdiglästa årsstatistik. Sex scener på tio sekunder ger en minut.
+Redigera `frontend/design.js` för scenordning och rubriker. Filmen rymmer upp till tolv granskade berättelser, fyra statistikscener samt öppning och avslutning. Berättelsernas lästid styr längden och hela filmen ryms inom tre minuter. Medlemmen kan läsa manuset och välja bort en berättelse före uppspelning eller export.
 
-I `frontend/paint.js` styr du layout, konturlinjer och rörelse. Förhandsvisningen och MP4-exporten använder samma ritfunktion. PNG-kortet har en egen layout i `frontend/poster.js`.
+`frontend/motion.js` väljer renderare utifrån filmens sparade tema. Motion V3 använder `frontend/motion-v3.js` för typografi, scengrafik och vertikala övergångar. Original och Puls har sina animationer i `frontend/motion.js`. React-spelaren visar SVG. Exporten ritar samma former på canvas. PNG-kortet hämtar en stillbild ur filmen.
 
-Musiken ligger i `static/year-music.m4a`. Byt till ett lika långt AAC-spår i M4A-format vid musikbyte. Anpassa spårets längd om scenlängderna ändras.
+Musiken är ett instrumentalt original från ElevenLabs i `static/year-music.m4a`. Kompositionen är 171 sekunder med en sju sekunder lång avslutning. `musicSections` i `frontend/design.js` placerar avslutningen sist även i kortare och längre versioner i både spelaren och MP4-filen.
 
 Kör `npm ci` och `npm run build` i `frontend` och checka in uppdaterade filer under `static`. Prova länken **Generera mitt år** och ladda ned videon för att kontrollera både bild och ljud.

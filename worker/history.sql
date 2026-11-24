@@ -22,3 +22,8 @@ alter table public.osw_member_messages enable row level security;
 alter table public.osw_history_results enable row level security;
 alter table public.osw_generated_results enable row level security;
 revoke all on public.osw_history_jobs,public.osw_member_messages,public.osw_history_results,public.osw_generated_results from public,anon,authenticated;
+create index if not exists osw_messages_channel_message
+on public.osw_member_messages(channel_id,message_id);
+create index if not exists osw_messages_reply_target
+on public.osw_member_messages(channel_id,((message->'message_reference')->>'message_id'))
+where message->>'type'='19';

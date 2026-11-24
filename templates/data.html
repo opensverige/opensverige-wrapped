@@ -8,20 +8,16 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 #scan-toast strong,#scan-toast span{display:block}
 #scan-toast span{font-size:.9rem}
 #daily summary{cursor:pointer;padding:.55rem 0;border-bottom:1px solid #eee}#daily li{padding:.55rem 0}#daily li div{white-space:pre-wrap;overflow-wrap:anywhere}
-</style><main><header><a href="/">OpenSverige Wrapped</a></header>{% if year_view %}
-<h1>Mitt år i OpenSverige</h1>
-<section><div id="year-preview">Dina inlägg sparas i databasen. När alla läsbara kanalchattar är synkade skapas ditt år från de sparade uppgifterna.</div>
-<button id="year-download" hidden>Ladda ned kortet som PNG</button> <button id="year-video" hidden>Ladda ned video (MP4)</button><p id="video-status" role="status"></p></section>
-<section id="memory-editor" hidden><h2>Mitt minne från året</h2>
-<form id="memory-form"><label>Länk till ditt Discord-inlägg<br><input type="url" name="link" required placeholder="https://discord.com/channels/…"></label>
-<button>Hämta originalet</button></form>
-<div id="memory-review" hidden><blockquote id="memory-original"></blockquote><a id="memory-link" target="_blank" rel="noopener noreferrer">Läs samtalet i Discord</a>
-<form id="memory-select"><p><label>Min rubrik i filmen<br><input name="title" required maxlength="64" placeholder="Vad vill du minnas?"></label></p><button>Använd i min film</button></form></div>
-<button id="memory-remove" hidden>Ta bort minnet ur filmen</button><p id="memory-status" role="status"></p></section>
+</style><link rel="stylesheet" href="{{ url_for('static',filename='wrapped.css') }}"><main class="wrapped-data"><header><a href="/">OpenSverige Wrapped</a></header>{% if year_view %}
+<h1 class="brand-title">Mitt år i <em>OpenSverige.</em></h1>
+<section class="year-panel"><p id="year-progress" role="status">Hämtar årets kanalhistorik och röststatistik …</p><div id="year-preview"></div>
+<button id="retry-data" hidden>Försök hämta data igen</button>
+<div class="year-actions"><button id="year-download" hidden>Ladda ned kortet som PNG</button> <button id="year-video" hidden>Ladda ned video (MP4)</button></div><p id="video-status" role="status"></p></section>
 <a href="/data">Visa mina data</a>
 <script src="{{ url_for('static',filename='year-player.js') }}"></script>
-{% else %}<h1>Mina data i OpenSverige</h1>{% endif %}
-<section><h2>Mina genererade Wrapped</h2><p id="story-status" role="status"></p><button id="retry-story" hidden>Försök igen</button><div id="wrapped-runs"></div></section>
+{% else %}<h1 class="brand-title">Mina data i <em>OpenSverige.</em></h1>{% include "wrapped-band.html" %}{% endif %}
+<section><h2>Mina genererade Wrapped</h2><p id="story-status" role="status"></p><button id="retry-story" hidden>Försök igen</button><div id="wrapped-runs"></div>
+<details><summary>Visa aktuella AI-prompter</summary>{% for name, prompt in prompts %}<h3>{{ name }}</h3><pre class="wrapped-input">{{ prompt }}</pre>{% endfor %}</details></section>
 <section><h2>Din Discord-profil</h2><dl>{% for label,value in rows.items() %}<dt>{{ label }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></section>
 <section><h2>Din aktivitet 2026</h2><p>Din aktivitet i {{ channels|length }} läsbara kanalchattar. Dagar räknas i svensk tid. Textstatistiken gäller kanalchattar utanför trådar och forum. Rösttid mäts från 23 november 2026 och inkluderar skärmdelning. Äldre Statbot-historik är ännu inte importerad.</p><p id="voice-status" role="status">Hämtar röststatistik …</p>
 <div id="voice-results" hidden>
@@ -45,6 +41,7 @@ function showScanStatus(title, detail) {
   toast.lastElementChild.textContent = detail;
   toast.hidden = false;
   statusLine.textContent = title + ' · ' + detail;
+  if(yearProgress && !scanComplete) yearProgress.textContent=statusLine.textContent;
 }
 const metrics = document.querySelector('#metrics');
 class SessionError extends Error {}
@@ -104,9 +101,31 @@ function dayDetails(date, count) {
   more.onclick = load;
   return details;
 }
+let voiceSummary = null;
+let voiceReady = false, historyStats = null;
+const yearProgress=document.querySelector('#year-progress');
+const retryData=document.querySelector('#retry-data');
+function startYearWhenReady() {
+  if(!yearProgress || !historyStats) return;
+  if(!voiceReady) {
+    const fetching=document.querySelector('#voice').disabled;
+    yearProgress.textContent=fetching ? 'Kanalhistoriken är klar. Hämtar röststatistiken …' : 'Kanalhistoriken är klar. Röststatistiken behöver hämtas igen.';
+    retryData.hidden=fetching;
+    return;
+  }
+  const stats=historyStats;
+  historyStats=null;
+  if(voiceSummary) stats.voice=voiceSummary;
+  retryData.hidden=true;
+  generateStories(stats);
+}
+if(retryData) retryData.onclick=()=>document.querySelector(historyStats?'#voice':'#load').click();
 let scanComplete = false;
 let historyAlreadyQueued = {{ year_view|tojson }};
 button.onclick = async () => {
+  historyStats=null;
+  if(retryData) retryData.hidden=true;
+  scanComplete=false;
   button.disabled = true;
   showScanStatus('Läser kanalhistoriken', 'Öppnar sparade framsteg …');
   const daily = document.querySelector("#daily");
@@ -247,6 +266,7 @@ button.onclick = async () => {
       const dt=document.createElement('dt'),dd=document.createElement('dd');
       dt.textContent=label;dd.textContent=value??'—';metrics.append(dt,dd);
     }
+    return {longestStreak:longest,firstDay:dates[0],lastDay:dates.at(-1),weekdays:Object.fromEntries(weekdayCounts)};
   }
   try {
     scanComplete = false;
@@ -352,8 +372,17 @@ button.onclick = async () => {
       const emoji = [...writtenEmojis].filter(([,n]) => n === uses).map(([key]) => key.split('·')[0]);
       const stats = {name: {{ rows['Visningsnamn']|tojson }}, channels:names.join(' / '),
         messages:Object.values(totals).reduce((sum,n)=>sum+n,0), reactions, count:highest, days:days.size, emoji:emoji.join(' '), uses};
-      window.showYear(stats);
-      generateStories(stats);
+      stats.activity={...renderMetrics(),replies,days:Object.fromEntries(days),
+        channels:Object.fromEntries(Object.entries(states).map(([id,s])=>[id,{name:channels[id],messages:totals[id]||0,days:s.days.size,replies:s.replies,reactions:s.reactions}])),
+        phrases:{{ content_access|tojson }}===true ? Object.fromEntries(phrases) : null,
+        highlights:Object.fromEntries([...highlights].map(([kind,p])=>[kind,{id:p.id,channel:p.channel,date:p.date,score:p.score}]))};
+      const peak = [...days].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0];
+      stats.months = Object.fromEntries(months);
+      if (peak) stats.peak = {date:peak[0],count:peak[1]};
+      const laugh = highlights.get('laugh');
+      if (laugh) stats.laugh = {date:laugh.date,count:laugh.score,channel:channels[laugh.channel]};
+      historyStats=stats;
+      startYearWhenReady();
     }
     {% endif %}
     button.textContent = scanComplete ? 'Hämta kanalhistoriken igen' : 'Fortsätt läsa kanalhistoriken';
@@ -363,12 +392,15 @@ button.onclick = async () => {
   } catch (error) {
     renderPhrases(false);
     showScanStatus('Inläsningen avbröts', error.message);
+    if(retryData) retryData.hidden=false;
   } finally {
-    button.disabled = false;
+    button.disabled = analysing;
     toastTimer = setTimeout(() => { toast.hidden = true; }, 4500);
   }
 };
 document.querySelector('#voice').onclick = async function () {
+  voiceSummary = null;
+  voiceReady = false;
   const status = document.querySelector('#voice-status');
   const voiceRows = document.querySelectorAll('tr:has([data-voice])');
   for (const row of voiceRows) {
@@ -384,6 +416,7 @@ document.querySelector('#voice').onclick = async function () {
     const data = await response.json();
     if (data.status === 'unconfigured') {
       status.textContent = 'Insamlingen förbereds.';
+      voiceReady=true;
       return;
     }
     const channels = data.channels.sort((a,b) => b.voice_seconds - a.voice_seconds);
@@ -394,6 +427,9 @@ document.querySelector('#voice').onclick = async function () {
       return Math.floor(minutes / 60) + ' tim ' + (minutes % 60) + ' min';
     }
     const sum = key => channels.reduce((total, channel) => total + channel[key], 0);
+    voiceSummary = {minutes:Math.floor(sum('voice_seconds')/60),seconds:sum('voice_seconds'),
+      streamSeconds:sum('stream_seconds'),visits:sum('visits'),channels};
+    voiceReady=true;
     document.querySelector('#voice-total').textContent = duration(sum('voice_seconds'));
     document.querySelector('#stream-total').textContent = duration(sum('stream_seconds'));
     document.querySelector('#visit-total').textContent = sum('visits');
@@ -410,8 +446,8 @@ document.querySelector('#voice').onclick = async function () {
     status.textContent = error instanceof SessionError ? error.message : 'Kunde inte läsa röststatistiken. Försök igen.';
   } finally {
     this.disabled = false;
+    startYearWhenReady();
   }
 };
 document.querySelector('#voice').click();
-button.click();
-</script><script src="/static/stories.js"></script></html>
+</script><script src="/static/stories.js"></script><script>button.click();</script></html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Filmteman · OpenSverige</title><link rel="stylesheet" href="/static/admin.css"></head>
+<body><header><nav><a href="/">OpenSverige</a><span>Wrapped / Admin</span></nav></header>
+<main><h1>Film<span>teman.</span></h1>
+<p class="active">Aktivt för nya filmer <strong>{{ themes[0].name }}</strong></p>
+{% if pin_login %}<form method="post" action="{{ url_for('theme_pin_logout') }}" style="display:inline-block;margin-bottom:1rem"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary">Logga ut från temaadmin</button></form>{% endif %}
+{% if request.args.get('saved')=='1' %}<p role="status">Temat är sparat.</p>{% endif %}
+<div class="studio"><div><form method="post" id="theme-form">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="revision" id="revision">
+<label>Tema att redigera<select name="theme" id="theme">{% for item in themes %}<option value="{{ item.id }}">{{ item.name }}{% if item.active %} · aktivt{% endif %}</option>{% endfor %}</select></label>
+<label>Temats namn<input name="name" id="theme-name" required maxlength="64"></label>
+<label>Filmformat<select name="layout" id="layout"><option value="motion-v3">Motion V3</option><option value="editorial">Årsfilm · redaktionellt tempo</option><option value="pulse">Puls · kortare scener</option></select></label>
+<fieldset><legend>Färgpalett</legend><div class="colors">{% for key,label in [('green','Mossa'),('lime','Lime'),('rust','Rost'),('paper','Papper')] %}<label>{{ label }}<input type="color" id="{{ key }}" name="{{ key }}"></label>{% endfor %}</div></fieldset>
+<label>Musik<select name="track" id="track"><option value="">Ingen musik</option>{% for track in tracks %}<option value="{{ track.id }}">{{ track.name }}</option>{% endfor %}</select></label>
+<audio id="listen" controls preload="none" aria-label="Lyssna på valt spår"></audio>
+<div class="actions"><button name="action" value="apply">Använd för nya filmer</button><button class="secondary" name="action" value="copy">Spara som nytt tema</button><button class="secondary" name="action" value="save">Spara ändringar</button></div>
+</form><details><summary>Lägg till musik från ElevenLabs</summary>
+<form id="upload"><label>Spårets namn<input name="name" required maxlength="64"></label>
+<label>MP3 från ElevenLabs<input type="file" name="audio" accept=".mp3,audio/mpeg" required></label>
+<small>2 sekunder till 3 minuter, högst 4 MB.</small>
+<button class="secondary">Lägg till i musikbiblioteket</button><p id="upload-status" role="status"></p></form></details></div>
+<section class="preview"><h2>Förhandsvisning</h2><div id="theme-preview"></div><p>Exempeldata. Ändra tema eller musik och spela upp filmen här.</p></section></div>
+</main><script type="application/json" id="catalog">{{ {'themes':themes,'tracks':tracks,'csrf':csrf}|tojson }}</script>
+<script src="/static/year-player.js"></script><script src="/static/admin.js"></script></body></html>
