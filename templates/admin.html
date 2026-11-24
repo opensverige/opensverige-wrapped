@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Filmteman · OpenSverige</title><link rel="stylesheet" href="/static/admin.css"></head>
-<body><header><nav><a href="/">OpenSverige</a><span>Wrapped / Admin</span></nav></header>
-<main><h1>Film<span>teman.</span></h1>
+<title>Filmteman · OpenSverige</title><link rel="stylesheet" href="/static/admin.css"><link rel="stylesheet" href="/static/site.css"></head>
+<body>{% include "site-header.html" %}
+<main class="shell" id="innehall"><h1>Film<span>teman.</span></h1>
 <p class="active">Aktivt för nya filmer <strong>{{ themes[0].name }}</strong></p>
 {% if pin_login %}<form method="post" action="{{ url_for('theme_pin_logout') }}" style="display:inline-block;margin-bottom:1rem"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary">Logga ut från temaadmin</button></form>{% endif %}
 {% if request.args.get('saved')=='1' %}<p role="status">Temat är sparat.</p>{% endif %}

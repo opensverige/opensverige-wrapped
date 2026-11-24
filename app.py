@@ -315,7 +315,8 @@ def data():
         content_access = bool(flags & ((1 << 18) | (1 << 19)))
     except (requests.RequestException, KeyError, ValueError):
         pass
-    return render_template("data.html", year_view=year_view, content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token(),
+    return render_template("data.html", member=member, pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")),
+                           admin=is_theme_admin(member), year_view=year_view, content_access=content_access, rows=rows, channels=channels, voice_ids=voice_ids, csrf=form_token(),
                            prompts=[("Nominering", RULES), ("Redigering", EDITOR), ("Manusgranskning", SCRIPT_REVIEW), ("Faktagranskning", FACT_CHECK)])
 
 

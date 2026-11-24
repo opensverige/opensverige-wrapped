@@ -1,0 +1,10 @@
+<a class="skip-nav" href="#innehall">Hoppa till innehållet</a>
+<header class="site-header">
+  <nav class="site-nav shell" aria-label="Huvudmeny">
+    <a class="site-brand" href="/" aria-label="OpenSverige Wrapped, startsidan">OpenSverige<span>Wrapped / 2026</span></a>
+    <div class="site-links">
+      {% if member or request.cookies.get('osw_access') %}<a href="/data"{% if request.path == '/data' %} aria-current="page"{% endif %}>Visa mina data</a>{% endif %}
+      {% if admin or pin_enabled or request.path.startswith('/admin') %}<a href="/admin"{% if request.path.startswith('/admin') %} aria-current="page"{% endif %}>Temaadmin</a>{% endif %}
+    </div>
+  </nav>
+</header>

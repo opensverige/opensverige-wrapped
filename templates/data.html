@@ -8,12 +8,12 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 #scan-toast strong,#scan-toast span{display:block}
 #scan-toast span{font-size:.9rem}
 #daily summary{cursor:pointer;padding:.55rem 0;border-bottom:1px solid #eee}#daily li{padding:.55rem 0}#daily li div{white-space:pre-wrap;overflow-wrap:anywhere}
-</style><link rel="stylesheet" href="{{ url_for('static',filename='wrapped.css') }}"><main class="wrapped-data"><header><a href="/">OpenSverige Wrapped</a></header>{% if year_view %}
+</style><link rel="stylesheet" href="{{ url_for('static',filename='wrapped.css') }}"><link rel="stylesheet" href="/static/site.css">
+{% include "site-header.html" %}<main class="wrapped-data shell" id="innehall">{% if year_view %}
 <h1 class="brand-title">Mitt år i <em>OpenSverige.</em></h1>
 <section class="year-panel"><p id="year-progress" role="status">Hämtar årets kanalhistorik och röststatistik …</p><div id="year-preview"></div>
 <button id="retry-data" hidden>Försök hämta data igen</button>
 <div class="year-actions" data-film-csrf="{{ csrf }}"><button id="year-download" hidden>Ladda ned kortet som PNG</button> <button id="year-video" hidden>Ladda ned video (MP4)</button> <button id="retry-film" hidden>Försök spara filmen igen</button></div><p id="video-status" role="status"></p><a hidden id="saved-film-link" href="/#mina-filmer">Visa mina sparade filmer</a></section>
-<a href="/data">Visa mina data</a>
 <script src="{{ url_for('static',filename='year-player.js') }}"></script>
 {% else %}<h1 class="brand-title">Mina data i <em>OpenSverige.</em></h1>{% include "wrapped-band.html" %}{% endif %}
 <section><h2>Mina genererade Wrapped</h2><p id="story-status" role="status"></p><button id="retry-story" hidden>Försök igen</button><div id="wrapped-runs"></div>

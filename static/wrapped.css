@@ -43,21 +43,6 @@
 @media (prefers-reduced-motion: reduce) { .band-track { animation: none; } }
 
 .brand-title em { color: #ac3917; font: italic 1.03em/.98 Georgia, serif; letter-spacing: -.055em; }
-.hero.brand-hero {
-  padding: 0;
-  border-radius: 0;
-  border: 1px solid #dedbd4;
-  background: #fbfaf7;
-}
-.brand-cover { position: relative; isolation: isolate; overflow: hidden; padding: clamp(24px, 5vw, 62px); min-height: clamp(200px, 27vw, 325px); }
-.brand-cover h1 { position: relative; width: 62%; }
-@media (max-width: 600px) {
-  .brand-cover h1 { width: 92%; font-size: clamp(2rem, 9.5vw, 3.5rem); }
-}
-.brand-cover em { display: block; }
-.brand-cover img { position: absolute; z-index: -1; right: -2%; bottom: -13%; height: 110%; width: 42%; object-fit: contain; object-position: center bottom; }
-.brand-actions { padding: 0 clamp(24px, 5vw, 62px) clamp(24px, 5vw, 56px); }
-.brand-actions p { margin-top: .8em; }
 .year-panel #year-preview > div { margin-inline: auto; }
 .year-actions { margin-top: 1.25rem; display:flex; gap:.6rem; justify-content:center; flex-wrap:wrap; }
 .year-panel #video-status { text-align:center; }

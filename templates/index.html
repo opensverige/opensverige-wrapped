@@ -1,39 +1,67 @@
-<!doctype html><html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<!doctype html>
+<html lang="sv"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OpenSverige Wrapped 2026</title>
-<style>
-:root {
-  --paper: hsl(42 45% 98%); --ink: hsl(45 17% 5%); --line: hsl(40 20% 87%);
-  --moss: #171717; --rust: #ac3917;
-  --mono: "JetBrains Mono", ui-monospace, monospace;
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 1.1rem/1.5 "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; }
-header { background: white; border-bottom: 1px solid var(--line); }
-nav, main { width: min(1040px, 100%); margin: auto; padding-inline: clamp(20px,5vw,64px); }
-nav { height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-nav b { font-size: 1.4rem; letter-spacing: -.045em; }
-nav span { font: .9rem var(--mono); color: var(--moss); }
-main { padding-block: clamp(32px,8vh,96px); }
-section { background: white; border: 1px solid var(--line); border-radius: 14px; padding: clamp(24px,6vw,64px); margin-bottom: 16px; }
-.hero { position: relative; overflow: hidden; border-top: 4px solid var(--moss); }
-h1, strong { display:block; overflow-wrap:anywhere; font-size:clamp(2.7rem,8vw,5.5rem); line-height:1.04; letter-spacing:-.06em; margin:0; }
-p { max-width: 48ch; margin: 20px 0 28px; }
-strong { color: var(--moss); margin-bottom: 8px; }
-a { color: var(--rust); text-underline-offset: 4px; }
-.cta, button { display: inline-block; background: var(--moss); color: white; border: 0; border-radius: 8px; padding: 12px 22px; font: inherit; font-weight: 650; text-decoration: none; cursor: pointer; }
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
-footer { margin-top: 24px; }
-</style><link rel="stylesheet" href="{{ url_for('static',filename='wrapped.css') }}"><header><nav><b>OpenSverige</b><span>Wrapped / 2026</span></nav></header><main>
-{% if problem %}<h1>Ett ögonblick.</h1><p>{{ problem }}</p><a href="/">Till startsidan</a>
-{% elif result is defined %}<h1>{{ 'Exempelåret' if demo else 'Ditt år' }}.</h1>
-{% if demo %}<p>Demo med påhittade siffror.</p>{% include "share.html" %}{% endif %}
-{% for number,label in result %}<section><strong>{{ number }}</strong><div>{{ label }}</div></section>{% else %}<p>Vi hittade inga egna inlägg i den läsbara historiken för #general och #bygg-skiten under 2026.</p>{% endfor %}
-{% if link %}<a class="cta" href="{{ link }}">Öppna ditt inlägg</a>{% endif %}<footer><a href="/">Till startsidan</a></footer>
-{% else %}<section class="hero brand-hero"><div class="brand-cover"><img src="{{ url_for('static',filename='wrapped-hand.png') }}" alt=""><h1 class="brand-title">{% if member %}Hej,<em>{{ member }}!</em>{% else %}Ditt år i<em>OpenSverige.</em>{% endif %}</h1></div>
-<div class="brand-actions"><p>Dina inlägg, samtal och byggen från Discord blir en personlig årsfilm. Du kan läsa manuset innan du spelar upp filmen.</p>
-{% if member %}<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap"><a class="cta" href="/mitt-ar">Generera mitt år</a><a href="/data">Visa mina data</a>{% if admin %}<a href="/admin">Hantera teman</a>{% endif %}</div>
-{% else %}<a class="cta" href="/login">Logga in med Discord</a>{% endif %}</div></section>
-{% if member and saved_films %}<section id="mina-filmer"><h2>Mina sparade filmer</h2>
-{% for film in saved_films %}<article><h3>{{ film.name }} · Wrapped 2026</h3><time datetime="{{ film.date.isoformat() }}">Sparad {{ film.date.strftime('%Y-%m-%d kl. %H.%M') }}</time>
-<video style="display:block;width:min(100%,380px);aspect-ratio:4/5;background:#171b17;margin:12px 0 28px" aria-label="{{ film.name }} · Wrapped 2026" src="/filmer/{{ film.key }}" controls playsinline preload="none"></video></article>{% endfor %}</section>{% endif %}
-{% if pin_enabled and not admin %}<footer><a href="/admin">Temaadmin</a></footer>{% endif %}{% endif %}</main></html>
+<link rel="stylesheet" href="{{ url_for('static',filename='site.css') }}">
+</head><body>
+{% include "site-header.html" %}
+<main id="innehall" class="home shell">
+{% if problem %}
+  <h1>Ett ögonblick.</h1><p>{{ problem }}</p><a href="/">Till startsidan</a>
+{% elif result is defined %}
+  <h1>{{ 'Exempelåret' if demo else 'Ditt år' }}.</h1>
+  {% if demo %}<p>Demo med påhittade siffror.</p>{% include "share.html" %}{% endif %}
+  {% for number,label in result %}<section class="home-stat"><strong>{{ number }}</strong><div>{{ label }}</div></section>
+  {% else %}<p>Vi hittade inga egna inlägg i den läsbara historiken för #general och #bygg-skiten under 2026.</p>{% endfor %}
+  {% if link %}<a href="{{ link }}">Öppna ditt inlägg</a>{% endif %}<p><a href="/">Till startsidan</a></p>
+{% elif saved_films %}
+  {% set latest = saved_films[0] %}
+  <section class="feature" id="mina-filmer" aria-labelledby="latest-title">
+    <div class="feature-copy">
+      <p class="feature-kicker">Din senaste årsfilm</p>
+      <h1 id="latest-title">{{ latest.name }}<em>Wrapped.</em></h1>
+      <p class="film-date">Sparad <time datetime="{{ latest.date.isoformat() }}">{{ latest.date.strftime('%Y-%m-%d · %H.%M') }}</time></p>
+      <div class="feature-actions">
+        <a class="primary-action" href="/filmer/{{ latest.key }}?download=1" download="OpenSverige-Wrapped-2026.mp4">Ladda ned MP4 <span aria-hidden="true">↓</span></a>
+        <a class="secondary-action" href="/mitt-ar">Generera en ny film</a>
+      </div>
+    </div>
+    <div class="feature-stage film-stage"><video id="latest-film" controls playsinline preload="metadata" aria-label="{{ latest.name }} · Wrapped 2026" src="/filmer/{{ latest.key }}"></video></div>
+    <script>
+      // Show the cover after its entrance animation. Play the full intro on first playback.
+      const film = document.getElementById('latest-film');
+      function showCover() {
+        if (!film.paused || film.currentTime || !Number.isFinite(film.duration)) return;
+        const coverTime = Math.min(1.4, film.duration / 2);
+        film.currentTime = coverTime;
+        film.addEventListener('play', () => {
+          if (Math.abs(film.currentTime - coverTime) < .15) film.currentTime = 0;
+        }, {once: true});
+      }
+      if (film.readyState >= 1) showCover();
+      else film.addEventListener('loadedmetadata', showCover, {once: true});
+    </script>
+  </section>
+  {% if saved_films|length > 1 %}
+  <details class="archive"><summary>Tidigare filmer ({{ saved_films|length - 1 }})</summary>
+    {% for film in saved_films[1:] %}<article>
+      <h2>{{ film.name }} · {{ film.date.strftime('%Y-%m-%d kl. %H.%M') }}</h2>
+      <video controls playsinline preload="none" aria-label="{{ film.name }} · tidigare årsfilm" src="/filmer/{{ film.key }}"></video>
+      <a class="secondary-action" href="/filmer/{{ film.key }}?download=1" download="OpenSverige-Wrapped-2026.mp4">Ladda ned MP4</a>
+    </article>{% endfor %}
+  </details>{% endif %}
+{% else %}
+  <section class="feature">
+    <div class="feature-copy">
+      <p class="feature-kicker">Discord / Årsfilm 2026</p>
+      <h1>Ditt år i<em>OpenSverige.</em></h1>
+      <p class="feature-intro">Dina byggen, samtal och sidospår från Discord blir en egen film. Du får läsa manuset först.</p>
+      <div class="feature-actions">
+        {% if member %}<a class="primary-action" href="/mitt-ar">Generera mitt år <span aria-hidden="true">→</span></a>
+        {% else %}<a class="primary-action" href="/login">Logga in med Discord <span aria-hidden="true">→</span></a>{% endif %}
+      </div>
+    </div>
+    <div class="feature-stage art-stage"><img src="{{ url_for('static',filename='wrapped-hand.png') }}" width="1024" height="1024" alt=""></div>
+  </section>
+{% endif %}
+</main></body></html>

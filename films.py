@@ -138,4 +138,7 @@ def install(app, member_for_request, readable_channels):
         if not film or not set(film["channels"]) <= readable_channels(member).keys():
             abort(404)
         path = urlsplit(film["url"]).path.lstrip("/")
-        return redirect(signed_link(path, "get", url=film["url"]), code=302)
+        target = signed_link(path, "get", url=film["url"])
+        if request.args.get("download") == "1":
+            target += "&download=1"
+        return redirect(target, code=302)
