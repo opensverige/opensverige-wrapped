@@ -92,7 +92,7 @@ function render(stats, scenes, i, local) {
     calendar: [P, G],
     number: [L, ink],
   };
-  const [bg, fg] = type === "figure" ? [[L, ink], [P, G], [R, P], [G, P]][i % 4] : schemes[type];
+  const [bg, fg] = type === "figure" ? [[L, ink], [P, G], [R, P], [G, P]][(i - 1) % 4] : schemes[type];
   const rect = (x, y, width, height, fill, rx = 0) => {
     if (width > 0 && height > 0)
       e.push({ tag: "rect", props: { x, y, width, height, fill, rx } });

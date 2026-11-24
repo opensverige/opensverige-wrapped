@@ -10,7 +10,7 @@ import {fps,buildScenes,totalFrames,soundtrack,musicSections} from './design';
 function YearCard({stats,scenes}) {
   const frame=useCurrentFrame();
   return <>{musicSections(totalFrames(scenes),stats.format).map(part=><Sequence key={part.start} from={part.start} durationInFrames={part.frames} layout="none">
-    <Html5Audio src={soundtrack} trimBefore={part.from}/>
+    <Html5Audio src={soundtrack(stats.format)} trimBefore={part.from}/>
   </Sequence>)}<svg viewBox="0 0 1080 1350" width="100%" height="100%" xmlSpace="preserve" role="img" aria-label={stats.name+' · Wrapped 2026'}>
     <defs><clipPath id="wrapped-avatar-circle" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/></clipPath></defs>
     {motionFrame(stats,scenes,frame).map(({elements,scale,y,opacity,radius},layer)=><React.Fragment key={layer}>

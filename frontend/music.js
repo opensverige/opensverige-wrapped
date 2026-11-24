@@ -3,7 +3,7 @@ import {Input, Output, BufferSource, BufferTarget, MP4, Mp4OutputFormat,
 import {fps,musicSections,soundtrack} from './design';
 
 export async function addMusic(videoBytes, duration, format) {
-  const response = await fetch(soundtrack);
+  const response = await fetch(soundtrack(format));
   if (!response.ok) throw new Error('Soundtrack unavailable');
   const open = bytes => new Input({source:new BufferSource(bytes),formats:[MP4]});
   const video = open(videoBytes);

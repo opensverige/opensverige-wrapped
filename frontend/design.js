@@ -1,8 +1,13 @@
 export const fps = 20;
-export const soundtrack = '/static/midnight-circuit-v1.m4a';
+const statsCut = index => Math.round(index * 8 * 60 / 122 * fps);
+// The mastered excerpt spans the opening and five figures, ending in a two-second fade.
+const statsMusicFrames = statsCut(6);
+export const soundtrack = format => format === 'stats'
+  ? '/static/midnight-circuit-stats.m4a'
+  : '/static/midnight-circuit-v1.m4a';
 const soundtrackFrames = 120 * fps;
 export function musicSections(frames, format) {
-  if (format === 'stats') return [{start:0, from:57*fps, frames}];
+  if (format === 'stats') return [{start:0, from:statsMusicFrames-frames, frames}];
   const end = soundtrackFrames;
   const coda=Math.min(7*fps,Math.floor(end/3)), body=end-coda;
   if(frames===end) return [{start:0,from:0,frames}];
@@ -23,14 +28,14 @@ const labels = {
   humor:'Årets glimt i ögat'
 };
 const number = n => Number(n || 0).toLocaleString('sv-SE');
+function openingScene(stats) {
+  return {title:'Ett år i OpenSverige', value:stats.name, detail:'Wrapped 2026', source:'', kind:'stat'};
+}
 function buildStatScenes(stats) {
   const scenes = [];
-  // Eight beats per figure in the 122 BPM soundtrack excerpt.
-  const cut = index => Math.round(index * 8 * 60 / 122 * fps);
   function add(graphic, title, quantity, unit, detail, ratio) {
-    const start = cut(scenes.length);
     scenes.push({kind:'stat', graphic, title, quantity, value:number(quantity)+' '+unit,
-      unit, detail, ratio, start, frames:cut(scenes.length+1)-start});
+      unit, detail, ratio});
   }
   const {messages, days, activity, reactions, voice} = stats;
   if (messages > 0 || (!voice?.minutes && !reactions)) {
@@ -46,14 +51,15 @@ function buildStatScenes(stats) {
   if (voice?.minutes > 0 && scenes.length < 5) {
     add('voice','I röstchatten',voice.minutes,voice.minutes===1?'minut':'minuter','Uppmätt rösttid sedan 23 november 2026.');
   }
-  return scenes;
+  return [openingScene(stats), ...scenes].map((scene,i)=>({
+    ...scene, start:statsCut(i), frames:statsCut(i+1)-statsCut(i)
+  }));
 }
 
 export function buildScenes(stats) {
   if (stats.format === 'stats') return buildStatScenes(stats);
-  const scenes = [];
+  const scenes = [openingScene(stats)];
   const add = (title,value,detail='',source='',kind='stat') => scenes.push({title,value,detail,source,kind});
-  add('Ett år i OpenSverige',stats.name,'Wrapped 2026');
   const stories = stats.stories || [];
   const ordered = stories.slice(0,12).sort((a,b)=>(a.date || '').localeCompare(b.date || ''));
   for (const item of ordered) {
