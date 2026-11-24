@@ -32,4 +32,8 @@ footer { margin-top: 24px; }
 {% else %}<section class="hero brand-hero"><div class="brand-cover"><img src="{{ url_for('static',filename='wrapped-hand.png') }}" alt=""><h1 class="brand-title">{% if member %}Hej,<em>{{ member }}!</em>{% else %}Ditt år i<em>OpenSverige.</em>{% endif %}</h1></div>
 <div class="brand-actions"><p>Dina inlägg, samtal och byggen från Discord blir en personlig årsfilm. Du kan läsa manuset innan du spelar upp filmen.</p>
 {% if member %}<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap"><a class="cta" href="/mitt-ar">Generera mitt år</a><a href="/data">Visa mina data</a>{% if admin %}<a href="/admin">Hantera teman</a>{% endif %}</div>
-{% else %}<a class="cta" href="/login">Logga in med Discord</a>{% endif %}</div></section>{% if pin_enabled and not admin %}<footer><a href="/admin">Temaadmin</a></footer>{% endif %}{% endif %}</main></html>
+{% else %}<a class="cta" href="/login">Logga in med Discord</a>{% endif %}</div></section>
+{% if member and saved_films %}<section id="mina-filmer"><h2>Mina sparade filmer</h2>
+{% for film in saved_films %}<article><h3>{{ film.name }} · Wrapped 2026</h3><time datetime="{{ film.date.isoformat() }}">Sparad {{ film.date.strftime('%Y-%m-%d kl. %H.%M') }}</time>
+<video style="display:block;width:min(100%,380px);aspect-ratio:4/5;background:#171b17;margin:12px 0 28px" aria-label="{{ film.name }} · Wrapped 2026" src="/filmer/{{ film.key }}" controls playsinline preload="none"></video></article>{% endfor %}</section>{% endif %}
+{% if pin_enabled and not admin %}<footer><a href="/admin">Temaadmin</a></footer>{% endif %}{% endif %}</main></html>

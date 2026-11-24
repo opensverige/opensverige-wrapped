@@ -2,6 +2,7 @@ from worker import history
 from editorial import EDITOR, FACT_CHECK, SCRIPT_REVIEW
 from stories import RULES, install as install_stories
 import themes
+import films
 import json
 import os
 import re
@@ -17,7 +18,10 @@ from urllib.parse import urlencode
 
 import requests
 from flask import Flask, abort, redirect, render_template, request
+from dotenv import load_dotenv
 
+if not os.getenv("VERCEL"):
+    load_dotenv()
 app = Flask(__name__)
 SUPABASE = "https://jocwffhmrxgwjwatavoe.supabase.co/auth/v1"
 PUBLIC_KEY = "sb_publishable_1QKfVj53e5SW2nKAnItt9Q_YPerc0I9"
@@ -74,19 +78,22 @@ def home():
     user = current_user()
     member = None
     admin = False
+    saved_films = []
     if user:
         uid = discord_identity(user)
         member_record = api(f"/guilds/{GUILD}/members/{uid}", "Bot " + os.environ["DISCORD_BOT_TOKEN"])
         admin = is_theme_admin(member_record)
+        channels = readable_channels(member_record)
         with history.connect() as db:
-            history.enqueue(db,uid,list(readable_channels(member_record)))
+            history.enqueue(db,uid,list(channels))
+            saved_films = films.saved(db, uid, channels)
         profile = next((entry.get("identity_data") or {} for entry in user.get("identities", [])
                         if entry.get("provider") == "discord"), {})
         member = (profile.get("preferred_username") or profile.get("user_name")
                   or profile.get("full_name") or user["user_metadata"].get("full_name")
                   or "Discord-medlem")
     return render_template("index.html", csrf=form_token() if user else None, member=member, admin=admin,
-                           pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")))
+                           saved_films=saved_films, pin_enabled=bool(os.getenv("OSW_THEME_PIN_HASH")))
 
 
 @app.route("/login")
@@ -467,3 +474,4 @@ def is_theme_admin(member):
 
 themes.install(app, authenticated_member, is_theme_admin, form_token)
 install_stories(app, authenticated_member, readable_channels, GUILD)
+films.install(app, authenticated_member, readable_channels)

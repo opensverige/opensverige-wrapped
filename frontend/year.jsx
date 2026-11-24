@@ -4,6 +4,7 @@ import {Player} from '@remotion/player';
 import {Html5Audio, Sequence, useCurrentFrame} from 'remotion';
 
 import {motionFrame} from './motion';
+import {saveFilm} from './film-storage';
 import {paint as paintPoster} from './poster';
 import {fps,buildScenes,totalFrames,filmTrack,musicSections} from './design';
 function YearCard({stats,scenes}) {
@@ -27,6 +28,7 @@ function YearCard({stats,scenes}) {
 }
 let root;
 let currentWorker;
+let viewRevision=0;
 let themePreview;
 window.previewTheme=(host,theme)=>{
   themePreview ??= createRoot(host);
@@ -69,11 +71,16 @@ function ScriptPreview({stats,onCreate}) {
   </div>;
 }
 window.showYear = stats => {
+  viewRevision++;
   const host = document.querySelector('#year-preview');
   root ??= createRoot(host);
   currentWorker?.terminate();
   currentWorker=undefined;
   for(const id of ['year-download','year-video']) document.getElementById(id).hidden=true;
+  for(const id of ['saved-film-link','retry-film']) {
+    const el=document.getElementById(id);
+    if(el) el.hidden=true;
+  }
   document.getElementById('video-status').textContent='';
   root.render(<ScriptPreview key={JSON.stringify(stats)} stats={stats} onCreate={playYear}/>);
 };
@@ -84,9 +91,36 @@ function playYear(stats) {
     fps={fps} controls style={{width:'100%',maxWidth:440,aspectRatio:'4/5'}}/>);
   const video = document.querySelector('#year-video');
   const status = document.querySelector('#video-status');
+  const csrf=document.querySelector('[data-film-csrf]')?.dataset.filmCsrf;
+  const persist=Boolean(stats.runId && csrf);
+  const retry=document.querySelector('#retry-film');
+  const revision=viewRevision;
+  let file;
+  const downloadVideo=()=>{
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(file);
+    link.download='mitt-opensverige-2026.mp4';
+    link.click();
+    setTimeout(()=>URL.revokeObjectURL(link.href),60000);
+  };
+  async function storeVideo() {
+    retry.hidden=true;
+    status.textContent='Sparar din privata film …';
+    try {
+      await saveFilm(file,stats.runId,csrf);
+      if(viewRevision!==revision)return;
+      status.textContent='Filmen är sparad. Du kan spela upp den från startsidan nästa gång du loggar in.';
+      document.querySelector('#saved-film-link').hidden=false;
+    } catch(error) {
+      if(viewRevision!==revision)return;
+      status.textContent=(error.message.startsWith('Logga in') ? error.message : 'Filmen kunde inte sparas.')+' Du kan ladda ned MP4-filen här.';
+      retry.hidden=false;
+      retry.onclick=storeVideo;
+    }
+  }
   video.hidden = false;
   video.disabled = false;
-  video.onclick = () => {
+  const renderVideo = () => {
     video.disabled = true;
     status.textContent = 'Skapar video …';
     let worker;
@@ -105,12 +139,11 @@ function playYear(stats) {
           status.textContent = 'Skapar video · ' + data.percent + ' %';
           return;
         }
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(data.file);
-        link.download = 'mitt-opensverige-2026.mp4';
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+        file=data.file;
         finish('Din MP4 är klar.');
+        video.onclick=downloadVideo;
+        if(persist) void storeVideo();
+        else downloadVideo();
       };
       worker.onerror = () => finish('Kunde inte skapa videon. Försök igen.');
       worker.postMessage(stats);
@@ -118,6 +151,8 @@ function playYear(stats) {
       finish('Webbläsaren kunde inte starta videoexporten.');
     }
   };
+  video.onclick=renderVideo;
+  if(persist) renderVideo();
   const download = document.querySelector('#year-download');
   download.hidden = false;
   download.onclick = async () => {

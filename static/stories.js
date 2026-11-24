@@ -11,7 +11,7 @@ function filmInput(run) {
 }
 function displayVersion(run) {
   if (document.querySelector('#year-preview')) {
-    window.showYear(filmInput(run));
+    window.showYear({...filmInput(run), runId:run.id});
     yearProgress.textContent='Manuset är klart.';
   }
 }
