@@ -75,13 +75,37 @@ def signed_link(path, operation, url=None, size=None):
     return url + "?" + urlencode(params)
 
 
+FORMATS = {"editorial": "Redaktionell film", "stats": "Bara statistik"}
+
+
+def film_format(value):
+    if value not in FORMATS:
+        abort(400, "Okänt filmformat.")
+    return value
+
+
+def stats_input(stats):
+    """Only disclose the aggregates used on screen for this format."""
+    def counts(record, fields):
+        return {key: record[key] for key in fields
+                if type(record.get(key)) is int and record[key] >= 0}
+
+    totals = counts(stats, ("messages", "days", "reactions"))
+    activity = counts(stats.get("activity") or {}, ("longestStreak", "replies"))
+    voice = counts(stats.get("voice") or {}, ("minutes",))
+    months = {key: n for key, n in (stats.get("months") or {}).items()
+              if re.fullmatch(r"2026-(?:0[1-9]|1[0-2])", key) and type(n) is int and n >= 0}
+    return dict(name=stats["name"], avatar=stats.get("avatar"), format="stats",
+                activity=activity, months=months, voice=voice, **totals)
+
+
 def saved(db, uid, channels):
     rows = db.execute(f"""with runs as ({VERSIONED_RUNS})
         select f.cache_key,f.result,f.saved_at,r.cache_key,r.version,r.result->'channels'
         from public.osw_generated_results f left join runs r on r.cache_key=split_part(f.cache_key,'/',1)
         where f.member_id=%s and f.kind=%s order by f.saved_at desc,f.cache_key""", (uid, STORY, uid, FILM))
     return [dict(key=key, date=when.astimezone(ZoneInfo("Europe/Stockholm")), name=data["name"],
-                 run_id=run_id, version=version)
+                 run_id=run_id, version=version, format_label=FORMATS[data.get("format", "editorial")])
             for key,data,when,run_id,version,source_channels in rows
             if set(data["channels"]) <= channels.keys() and set(source_channels or []) <= channels.keys()]
 
@@ -104,6 +128,7 @@ def install(app, member_for_request, readable_channels):
             return {"error": "Logga in igen för att spara filmen."}, 401
         if not re.fullmatch("[0-9a-f]{64}", digest) or action not in ("upload", "confirm"):
             abort(404)
+        selected_format = film_format(request.form.get("format", "editorial"))
         size = request.form.get("size", type=int)
         if not size or not 16 <= size <= MAX_BYTES:
             abort(413)
@@ -136,7 +161,7 @@ def install(app, member_for_request, readable_channels):
                 abort(422, "Filen kunde inte verifieras som MP4.")
         with history.connect() as db:
             history.save_generated(db, uid, FILM, key, dict(url=url, name=run["stats"]["name"],
-                                   channels=run["channels"]))
+                                   channels=run["channels"], format=selected_format))
         return {"saved": True}
 
     @app.get("/filmer/<uuid:run_id>/<digest>")

@@ -77,7 +77,7 @@ function sceneType(s, i, n) {
 function render(stats, scenes, i, local) {
   const s = scenes[i],
     t = Math.max(0, local) / fps,
-    type = sceneType(s, i, scenes.length),
+    type = s.graphic ? "figure" : sceneType(s, i, scenes.length),
     e = [];
   const P = paper, G = green, L = lime, R = rust;
   const schemes = {
@@ -92,7 +92,7 @@ function render(stats, scenes, i, local) {
     calendar: [P, G],
     number: [L, ink],
   };
-  const [bg, fg] = schemes[type];
+  const [bg, fg] = type === "figure" ? [[L, ink], [P, G], [R, P], [G, P]][i % 4] : schemes[type];
   const rect = (x, y, width, height, fill, rx = 0) => {
     if (width > 0 && height > 0)
       e.push({ tag: "rect", props: { x, y, width, height, fill, rx } });
@@ -162,7 +162,45 @@ function render(stats, scenes, i, local) {
   const enter = (delay = 0) => ease((t - delay) / 0.45);
   rect(0, 0, W, H, bg);
   // All elements are simple renderer-compatible primitives; no DOM-only animation.
-  if (type === "intro") {
+  if (type === "figure") {
+    const accent = bg === G ? L : bg === P ? R : fg;
+    const muted = bg === G ? "#526950" : bg === R ? "#CA755B" : bg === P ? "#D9DCCD" : "#ADC85F";
+    block(s.title, 60, 154, 960, 73, 1, 0, fg);
+    const value = s.quantity.toLocaleString("sv-SE");
+    const fit = lines(value, 960, 238, 900, sans, 1, 270);
+    text(value, 53, 555, fit.size, fg, 900);
+    block(s.unit, 63, 575, 950, 69, 1);
+    if (s.graphic === "months" && Object.keys(stats.months).length) {
+      const months = Object.entries(stats.months).sort();
+      const tallest = Math.max(1, ...months.map(([,n])=>n));
+      const pitch = 950/months.length;
+      const labels = ["JAN","FEB","MAR","APR","MAJ","JUN","JUL","AUG","SEP","OKT","NOV","DEC"];
+      months.forEach(([month,n], j)=>{
+        const h = 238*n/tallest*enter(j*.03);
+        rect(65+j*pitch, 997-h, Math.min(92,pitch*.75), h, n===tallest ? accent : muted, 4);
+        text(labels[Number(month.slice(-2))-1], 65+j*pitch, 1040, 26, fg, 600, mono);
+      });
+    } else if (["streak","days","share"].includes(s.graphic)) {
+      const share = s.graphic === "share";
+      const count = share ? 100 : Math.min(366, s.quantity);
+      const cols = share ? 20 : Math.max(4, Math.ceil(Math.sqrt(count*3.5)));
+      const rows = Math.ceil(count/cols);
+      for (let j=0; j<count; j++) {
+        const stepX=950/cols, stepY=Math.min(80,250/rows);
+        const p=enter(.45*j/count);
+        rect(65+(j%cols)*stepX, 751+Math.floor(j/cols)*stepY,
+          Math.max(2,stepX-5)*p, Math.max(2,stepY-5)*p,
+          share && j>=s.ratio ? muted : accent, 5);
+      }
+    } else {
+      // A decorative waveform; the count above carries the measured value.
+      for (let j=0; j<44; j++) {
+        const h=35+154*(.5+.5*Math.sin(j*.34-t*3));
+        rect(65+j*21.6, 870-h/2, 13, h*enter(j*.009), accent, 6);
+      }
+    }
+    block(s.detail, 65, 1084, 950, 48, 2, .18, fg, 400);
+  } else if (type === "intro") {
     for (let j = 0; j < 11; j++) {
       const p = enter(j * 0.035);
       rect(

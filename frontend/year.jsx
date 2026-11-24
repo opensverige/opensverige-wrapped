@@ -9,7 +9,7 @@ import {paint as paintPoster} from './poster';
 import {fps,buildScenes,totalFrames,soundtrack,musicSections} from './design';
 function YearCard({stats,scenes}) {
   const frame=useCurrentFrame();
-  return <>{musicSections(totalFrames(scenes)).map(part=><Sequence key={part.start} from={part.start} durationInFrames={part.frames} layout="none">
+  return <>{musicSections(totalFrames(scenes),stats.format).map(part=><Sequence key={part.start} from={part.start} durationInFrames={part.frames} layout="none">
     <Html5Audio src={soundtrack} trimBefore={part.from}/>
   </Sequence>)}<svg viewBox="0 0 1080 1350" width="100%" height="100%" xmlSpace="preserve" role="img" aria-label={stats.name+' · Wrapped 2026'}>
     <defs><clipPath id="wrapped-avatar-circle" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/></clipPath></defs>
@@ -39,11 +39,12 @@ function ScriptPreview({stats,onCreate}) {
     });
   }
   const stories=stats.stories || [];
-  const selected={...stats,stories:stories.filter((_,i)=>!excluded.has(i))};
+  const statsOnly=stats.format==='stats';
+  const selected=statsOnly ? stats : {...stats,stories:stories.filter((_,i)=>!excluded.has(i))};
   const scenes=buildScenes(selected);
   const seconds=Math.round(totalFrames(scenes)/fps);
-  return <div className="script-preview"><h2>Läs ditt filmmanus</h2>
-    <p>Scenerna visas i filmens ordning. Du kan ta bort en berättelse innan du skapar filmen.</p>
+  return <div className="script-preview"><h2>{statsOnly ? 'Granska dina siffror' : 'Läs ditt filmmanus'}</h2>
+    <p>{statsOnly ? 'De här siffrorna visas i filmen, i den här ordningen.' : 'Scenerna visas i filmens ordning. Du kan ta bort en berättelse innan du skapar filmen.'}</p>
     <ol>{scenes.map((scene,i)=><li key={i}>
       {scene.storyIndex===undefined ? <strong>{scene.title}</strong> :
         <label><input type="checkbox" checked aria-label={'Ta med '+scene.value} onChange={()=>toggle(stories.indexOf(selected.stories[scene.storyIndex]))}/> {scene.title}</label>}
@@ -52,7 +53,7 @@ function ScriptPreview({stats,onCreate}) {
     {excluded.size>0 && <details><summary>Bortvalda berättelser ({excluded.size})</summary>
       {[...excluded].map(i=><label key={i}><input type="checkbox" checked={false} onChange={()=>toggle(i)}/> {stories[i].title}</label>)}
     </details>}
-    <button onClick={()=>onCreate(selected)}>Skapa min film · {Math.floor(seconds/60)} min {seconds%60} s</button>
+    <button onClick={()=>onCreate(selected)}>Skapa min film · {seconds>=60 && Math.floor(seconds/60)+' min '}{seconds%60} s</button>
   </div>;
 }
 window.showYear = stats => {
@@ -92,7 +93,7 @@ function playYear(stats) {
     retry.hidden=true;
     status.textContent='Sparar din privata film …';
     try {
-      await saveFilm(file,stats.runId,csrf);
+      await saveFilm(file,stats.runId,csrf,stats.format);
       if(viewRevision!==revision)return;
       status.textContent='Filmen är sparad. Du kan spela upp den från startsidan nästa gång du loggar in.';
       document.querySelector('#saved-film-link').hidden=false;

@@ -7,8 +7,8 @@
 {% if library %}
 <div class="film-grid">
 {% for film in library %}<article class="library-film" id="film-{{ film.key|replace('/','-') }}">
-  <video aria-label="{{ film.name }} · Wrapped 2026{% if film.version %} · dataversion {{ film.version }}{% endif %}" controls playsinline preload="metadata" loading="lazy" src="/filmer/{{ film.key }}"></video>
-  <h2>{{ film.name }} · Wrapped 2026</h2>
+  <video aria-label="{{ film.name }} · {{ film.format_label }}{% if film.version %} · dataversion {{ film.version }}{% endif %}" controls playsinline preload="metadata" loading="lazy" src="/filmer/{{ film.key }}"></video>
+  <h2>{{ film.name }} · {{ film.format_label }}</h2>
   {% if film.version %}<a href="/data#underlag-{{ film.run_id }}">Byggd på dataversion {{ film.version }}</a>{% else %}<p>Uppgift om dataversion saknas.</p>{% endif %}
   <p class="film-date">Film sparad <time datetime="{{ film.date.isoformat() }}">{{ film.date.strftime('%Y-%m-%d kl. %H.%M') }}</time></p>
   <a class="secondary-action" download href="/filmer/{{ film.key }}?download=1">Ladda ned MP4</a>
@@ -20,15 +20,18 @@
 <section class="version-list" id="valj-dataversion" aria-labelledby="version-title">
 <h2 id="version-title">Välj dataversion för din film</h2>
 {% if snapshots %}
-<p>Välj ett sparat underlag. Du får granska manuset innan filmen skapas.</p>
+<p>Välj filmformat för ett sparat underlag. Den redaktionella filmen blandar berättelser och siffror. Bara statistik är en kortfilm med årets siffror.</p>
 <div class="version-scroll" tabindex="0" role="region" aria-label="Jämförelse av sparade dataversioner">
 <table><thead><tr><th scope="col">Underlag</th><th scope="col">Ny film</th><th scope="col">Sparat</th><th scope="col">Inlägg</th><th scope="col">Aktiva dagar</th><th scope="col">Berättelser i manuset</th><th scope="col">Filmer</th></tr></thead>
 <tbody>{% for snap in snapshots %}<tr id="version-{{ snap.id }}">
 <th scope="row"><a href="/data#underlag-{{ snap.id }}">Dataversion {{ snap.version }}</a></th>
-<td><a href="/filmer/underlag/{{ snap.id }}" aria-label="Skapa film från dataversion {{ snap.version }}">Skapa film</a></td>
+<td><div class="film-formats">
+<a href="/filmer/underlag/{{ snap.id }}" aria-label="Redaktionell film från dataversion {{ snap.version }}">Redaktionell film</a>
+<a href="/filmer/underlag/{{ snap.id }}?format=stats" aria-label="Bara statistik från dataversion {{ snap.version }}">Bara statistik</a>
+</div></td>
 <td><time datetime="{{ snap.date.isoformat() }}">{{ snap.date.strftime('%Y-%m-%d %H.%M') }}</time></td>
 <td>{{ snap.posts }}</td><td>{{ snap.days if snap.days is not none else '–' }}</td><td>{{ snap.stories }}</td>
-<td>{% for film in by_run.get(snap.id, []) %}<a href="#film-{{ film.key|replace('/','-') }}">Visa film{% if loop.length > 1 %} · {{ film.date.strftime('%d/%m %H.%M') }}{% endif %}</a><br>{% else %}Ingen sparad MP4{% endfor %}</td>
+<td>{% for film in by_run.get(snap.id, []) %}<a href="#film-{{ film.key|replace('/','-') }}">{{ film.format_label }}{% if loop.length > 1 %} · {{ film.date.strftime('%d/%m %H.%M') }}{% endif %}</a><br>{% else %}Ingen sparad MP4{% endfor %}</td>
 </tr>{% endfor %}</tbody></table>
 </div><p><a class="secondary-action" href="/mitt-ar">Hämta en ny dataversion</a></p>
 {% else %}

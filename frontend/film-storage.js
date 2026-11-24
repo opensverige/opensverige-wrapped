@@ -1,10 +1,10 @@
-export async function saveFilm(file, runId, csrf) {
+export async function saveFilm(file, runId, csrf, format = 'editorial') {
   const hash = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
   const digest = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
   const base = '/data/films/' + encodeURIComponent(runId) + '/' + digest + '/';
   const post = async action => {
     const response = await fetch(base + action, {
-      method:'POST', body:new URLSearchParams({csrf, size:String(file.size)})
+      method:'POST', body:new URLSearchParams({csrf, format, size:String(file.size)})
     });
     if (response.status === 401) throw new Error('Logga in igen för att spara filmen.');
     if (!response.ok) throw new Error('Filmen kunde inte sparas.');

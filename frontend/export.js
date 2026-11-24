@@ -24,7 +24,7 @@ self.onmessage = async ({data: stats}) => {
       if (frame % 12 === 0) self.postMessage({percent:Math.round(frame/frames*100)});
     }
     encoder.finalize();
-    const file = await addMusic(encoder.FS.readFile(encoder.outputFilename),frames/fps);
+    const file = await addMusic(encoder.FS.readFile(encoder.outputFilename),frames/fps,stats.format);
     self.postMessage({file});
   } catch {
     self.postMessage({error:true});

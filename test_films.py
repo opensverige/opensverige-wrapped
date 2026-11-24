@@ -45,6 +45,34 @@ class FilmAccessTest(unittest.TestCase):
         res = self.client.post("/data/films/" + self.key + "/upload", data={"size":1024})
         self.assertEqual({"saved":True}, res.json)
 
+    def test_invalid_format_cannot_be_saved(self):
+        res = self.client.post("/data/films/" + self.key + "/confirm",
+                               data={"size": 1024, "format": "unknown"})
+        self.assertEqual(400, res.status_code)
+
+    def test_stats_page_only_sends_profile_and_aggregates(self):
+        import app as web
+        self.run.update(stories=[{"kind":"project","title":"secret-story","story":"secret-body","sources":[]}])
+        self.run["stats"].update(messages=7, days=2, conversation={"quote":"secret-conversation"},
+                                 activity={"longestStreak":2, "replies":3, "highlights":"secret-highlight"},
+                                 months={"2026-03":7,"secret-month":1})
+        db = MagicMock()
+        db.execute.return_value.fetchone.return_value = (self.run, 1)
+        with patch.object(web,"authenticated_member",return_value={"user":{"id":"1"}}), \
+             patch.object(web,"readable_channels",return_value={"A":"secret-channel"}), \
+             patch.object(web.history,"connect") as connect:
+            connect.return_value.__enter__.return_value = db
+            client = web.app.test_client()
+            url = "/filmer/underlag/" + self.run_id
+            stats = client.get(url+"?format=stats")
+            self.assertEqual(200, stats.status_code)
+            self.assertNotIn(b"secret-", stats.data)
+            self.assertIn(b'"messages": 7', stats.data)
+            self.assertIn(b'"replies": 3', stats.data)
+            editorial = client.get(url)
+            self.assertIn(b"secret-story", editorial.data)
+            self.assertEqual(400, client.get(url+"?format=unknown").status_code)
+
     def test_wrong_store_cannot_issue_upload_ticket(self):
         response = MagicMock(ok=True, status_code=200)
         response.json.return_value = {"url":"https://demo.public.blob.vercel-storage.com/wrapped/config/private-store.txt"}

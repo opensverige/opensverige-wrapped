@@ -115,18 +115,25 @@ def saved_script(run_id):
     member = authenticated_member()
     if not isinstance(member, dict):
         return member
+    selected_format = films.film_format(request.args.get("format", "editorial"))
     uid = member["user"]["id"]
     channels = readable_channels(member)
     with history.connect() as db:
-        row = db.execute(f"select result,version from ({VERSIONED_RUNS}) v where cache_key=%s",
+        projection = ("jsonb_build_object('channels',result->'channels','stats',"
+                      "(result->'stats') - 'conversation')" if selected_format == "stats" else "result")
+        row = db.execute(f"select {projection},version from ({VERSIONED_RUNS}) v where cache_key=%s",
                          (uid, STORY, str(run_id))).fetchone()
         if not row or not set(row[0]["channels"]) <= channels.keys():
             abort(404)
     run,version = row
-    stats = {k:v for k,v in run["stats"].items() if k not in ("gollum","theme")}
+    stats = {k:v for k,v in run["stats"].items() if k not in ("gollum", "theme", "conversation")}
     stats.setdefault("avatar", discord_avatar(member,GUILD))
-    return render_template("saved-script.html", version=version, run=dict(id=str(run_id),stats=stats,stories=run["stories"]),
-                           channels=channels, member=member, csrf=form_token())
+    if selected_format == "stats":
+        payload = dict(stats=films.stats_input(stats))
+    else:
+        payload = dict(run=dict(stats=stats, stories=run["stories"]), channels=channels)
+    return render_template("saved-script.html", version=version, run_id=str(run_id), payload=payload,
+                           format_label=films.FORMATS[selected_format], member=member, csrf=form_token())
 
 
 @app.route("/login")
